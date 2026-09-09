@@ -58,7 +58,7 @@ export const DemandForecast: React.FC<DemandForecastProps> = ({
           produce.crop.trim();
 
         const response = await fetch(
-          `http://localhost:5000/api/market-summary?crop=${encodeURIComponent(
+          `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(
             crop
           )}`
         );

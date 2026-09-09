@@ -88,7 +88,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
 
           try {
             const response = await fetch(
-              `http://localhost:5000/api/market-summary?crop=${encodeURIComponent(crop)}`
+              `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(crop)}`
             );
             const result = await response.json();
 
@@ -124,7 +124,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
     setPricePopup({ productName, loading: true, data: null, error: '' });
     try {
       const crop = getMandiCropName(productName);
-      const response = await fetch(`http://localhost:5000/api/price-comparison?crop=${encodeURIComponent(crop)}`);
+      const response = await fetch(`https://apna-anaj-backend.onrender.com/api/price-comparison?crop=${encodeURIComponent(crop)}`);
       const result = await response.json();
       if (!response.ok || !result.success) {
         throw new Error(result.message || 'Historical mandi price data is not available.');

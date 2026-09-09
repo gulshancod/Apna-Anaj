@@ -35,7 +35,7 @@ export const BuyerMatching: React.FC<BuyerMatchingProps> = ({
 
   useEffect(() => {
     fetch(
-      `http://localhost:5000/api/market-summary?crop=${encodeURIComponent(crop)}`
+      `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(crop)}`
     )
       .then((res) => res.json())
       .then((data) => {

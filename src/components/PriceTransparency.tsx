@@ -35,7 +35,7 @@ export const PriceTransparency: React.FC<PriceTransparencyProps> = ({
     setError("");
 
     fetch(
-      `http://localhost:5000/api/market-summary?crop=${encodeURIComponent(crop)}`
+      `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(crop)}`
     )
       .then((res) => {
         if (!res.ok) throw new Error("Market API failed");
