@@ -1,0 +1,6 @@
+{
+  "name": "Apna Anaj",
+  "description": "Apna Anaj - Farm to Fork Direct Marketplace connecting farmers and buyers with zero middleman commissions, fair rates, and fast delivery.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

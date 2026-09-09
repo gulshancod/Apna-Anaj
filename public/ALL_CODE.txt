@@ -1,0 +1,4515 @@
+================================================================================
+FILE: package.json
+================================================================================
+
+{
+  "name": "react-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port=3000 --host=0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf dist server.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/canvas-confetti": "^1.9.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "canvas-confetti": "^1.9.4",
+    "dotenv": "^17.2.3",
+    "express": "^4.21.2",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.1",
+    "react-dom": "^19.0.1",
+    "vite": "^6.2.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "autoprefixer": "^10.4.21",
+    "esbuild": "^0.25.0",
+    "tailwindcss": "^4.1.14",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.3",
+    "@types/express": "^4.17.21"
+  }
+}
+
+
+
+================================================================================
+FILE: vite.config.ts
+================================================================================
+
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+import {defineConfig} from 'vite';
+
+export default defineConfig(() => {
+  return {
+    plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, '.'),
+      },
+    },
+    server: {
+      // HMR is disabled in AI Studio via DISABLE_HMR env var.
+      // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
+      hmr: process.env.DISABLE_HMR !== 'true',
+      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
+      watch: process.env.DISABLE_HMR === 'true' ? null : {},
+    },
+  };
+});
+
+
+
+================================================================================
+FILE: tsconfig.json
+================================================================================
+
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "experimentalDecorators": true,
+    "useDefineForClassFields": false,
+    "module": "ESNext",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "allowJs": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  }
+}
+
+
+
+================================================================================
+FILE: index.html
+================================================================================
+
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Apna Anaj | Farm to Fork Direct Marketplace</title>
+    <meta name="description" content="Apna Anaj connects verified Indian farmers directly with buyers for fresher produce, fair prices, and 15-min delivery with zero middleman commissions." />
+    <meta property="og:title" content="Apna Anaj | Farm to Fork Direct Marketplace" />
+    <meta property="og:description" content="Apna Anaj connects verified Indian farmers directly with buyers for fresher produce, fair prices, and 15-min delivery with zero middleman commissions." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..800;1,9..40,400..800&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,600&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-[#faf5e8] dark:bg-[#0e1a14] text-[#20352b] dark:text-[#f4f8f5] antialiased transition-colors duration-200 selection:bg-[#d9efb7] selection:text-[#20352b]">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
+
+
+================================================================================
+FILE: src/types.ts
+================================================================================
+
+export type UserRole = 'guest' | 'buyer' | 'farmer';
+
+export type LanguageCode = 'en' | 'hinglish' | 'hi' | 'mr' | 'pa' | 'gu' | 'bn' | 'te' | 'ta' | 'kn';
+
+export type ProductCategory = 'all' | 'grains' | 'veggies' | 'leafy' | 'gourd' | 'fruits' | 'dairy' | 'spices';
+
+export interface ProductItem {
+  id: string;
+  name: string;
+  hindiName: string;
+  category: ProductCategory;
+  price: number;
+  originalPrice: number;
+  unit: string;
+  image: string;
+  farm: string;
+  location: string;
+  tags: string[];
+  searchKeywords: string;
+  inStock: boolean;
+  harvestTime: string;
+  farmerName: string;
+  farmerRating: number;
+}
+
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  unit: string;
+  qty: number;
+  image: string;
+  farm: string;
+}
+
+export interface FarmerProduce {
+  crop: string;
+  hindiName: string;
+  qty: number;
+  price: number;
+  loc: string;
+  harvestDate: string;
+  expiryDate: string;
+  notes?: string;
+}
+
+export interface OrderRecord {
+  id: string;
+  role: 'buyer' | 'farmer';
+  items: string;
+  total: number;
+  farmerPayout: number;
+  time: string;
+  status: string;
+  deliveryMinutes?: number;
+  deliveryRider?: {
+    name: string;
+    vehicle: string;
+    rating: number;
+    phone: string;
+  };
+}
+
+export interface MandiRate {
+  id: string;
+  mandi: string;
+  commodity: string;
+  hindiCommodity: string;
+  price: number;
+  unit: string;
+  change: number; // positive or negative percentage
+  isUp: boolean;
+  apnaAnajPrice: number;
+}
+
+export interface Testimonial {
+  id: string;
+  quote: string;
+  name: string;
+  role: string;
+  avatar: string;
+  rating: number;
+  badge?: string;
+}
+
+
+
+================================================================================
+FILE: src/index.css
+================================================================================
+
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-heading: 'Fraunces', Georgia, serif;
+    --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  
+  html {
+    background-color: #fbf8ef;
+    color: #1f3427;
+  }
+
+  html.dark {
+    background-color: #0d1a13;
+    color: #f4f8f5;
+  }
+
+  body {
+    background-color: transparent;
+    color: inherit;
+    min-height: 100vh;
+  }
+}
+
+.font-heading {
+  font-family: var(--font-heading);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 35s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Custom scrollbar for clean UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(39, 107, 69, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(39, 107, 69, 0.45);
+}
+
+
+
+
+================================================================================
+FILE: src/main.tsx
+================================================================================
+
+import {StrictMode} from 'react';
+import {createRoot} from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
+
+
+
+================================================================================
+FILE: src/App.tsx
+================================================================================
+
+import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
+import { UserRole, LanguageCode, ProductItem, FarmerProduce, OrderRecord } from './types';
+import { initialProducts } from './data/mockData';
+import { MandiTicker } from './components/MandiTicker';
+import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { WelcomeView } from './components/WelcomeView';
+import { FarmerRegistration } from './components/FarmerRegistration';
+import { BuyerRegistration } from './components/BuyerRegistration';
+import { AuthLogin } from './components/AuthLogin';
+import { BuyerStore } from './components/BuyerStore';
+import { BuyerTracking } from './components/BuyerTracking';
+import { FarmerDashboard } from './components/FarmerDashboard';
+import { AddProduce } from './components/AddProduce';
+import { DemandForecast } from './components/DemandForecast';
+import { SellingRecommendation } from './components/SellingRecommendation';
+import { BuyerMatching } from './components/BuyerMatching';
+import { QuantityPooling } from './components/QuantityPooling';
+import { PickupRoute } from './components/PickupRoute';
+import { PriceTransparency } from './components/PriceTransparency';
+import { OrdersView } from './components/OrdersView';
+import { CartDrawer } from './components/CartDrawer';
+import { JoinModal } from './components/JoinModal';
+import { Toast } from './components/Toast';
+
+export default function App() {
+  const [currentLang, setCurrentLang] = useState<LanguageCode>('en');
+  const [currentUser, setCurrentUser] = useState<{
+    role: UserRole;
+    name: string;
+    farm: string;
+    location: string;
+    address: string;
+  }>({
+    role: 'guest',
+    name: 'Guest',
+    farm: 'Green Valley Organic Farm',
+    location: 'Pune, Maharashtra',
+    address: 'Ghaziabad, Uttar Pradesh'
+  });
+
+  const [currentTab, setCurrentTab] = useState<string>('view-welcome');
+  const [products, setProducts] = useState<ProductItem[]>(initialProducts);
+  const [cart, setCart] = useState<Record<string, { product: ProductItem; qty: number }>>({});
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [farmerProduce, setFarmerProduce] = useState<FarmerProduce>({
+    crop: 'MP Sharbati Gehu',
+    hindiName: 'शरबती गेहूं',
+    qty: 500,
+    price: 48,
+    loc: 'Sehore, Madhya Pradesh',
+    harvestDate: '2026-09-02',
+    expiryDate: '2026-09-15'
+  });
+
+  const [orders, setOrders] = useState<OrderRecord[]>([
+    {
+      id: 'KD-4091',
+      role: 'buyer',
+      items: '1x MP Sharbati Gehu (1kg), 1x Desi Red Tomatoes (1kg)',
+      total: 80,
+      farmerPayout: 70,
+      time: '10:14 AM',
+      status: '🛵 Arriving in 11 mins',
+      deliveryMinutes: 11,
+      deliveryRider: {
+        name: 'Vikas Shinde',
+        vehicle: 'Electric EV Delivery Bike',
+        rating: 4.9,
+        phone: '+91 9876543210'
+      }
+    }
+  ]);
+
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [joinModalRole, setJoinModalRole] = useState<'buyer' | 'farmer'>('buyer');
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Sync Dark Theme
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  // Cart total calculations
+  const cartEntries = (Object.values(cart) as Array<{ product: ProductItem; qty: number }>).filter(item => item.qty > 0);
+  const cartItemCount = cartEntries.reduce((acc: number, curr) => acc + curr.qty, 0);
+  const cartTotal = cartEntries.reduce((acc: number, curr) => acc + curr.product.price * curr.qty, 0);
+
+  const handleUpdateCart = (product: ProductItem, delta: number) => {
+    setCart((prev) => {
+      const currentQty = prev[product.id]?.qty || 0;
+      const newQty = Math.max(0, currentQty + delta);
+      if (newQty === 0) {
+        const copy = { ...prev };
+        delete copy[product.id];
+        return copy;
+      }
+      return {
+        ...prev,
+        [product.id]: { product, qty: newQty }
+      };
+    });
+
+    if (delta > 0) {
+      showToast(`Added ${product.name} to basket`);
+    }
+  };
+
+  const handleToggleFavorite = (product: ProductItem) => {
+    setFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(product.id)) {
+        next.delete(product.id);
+        showToast(`Removed "${product.name}" from favorites`);
+      } else {
+        next.add(product.id);
+        showToast(`Saved "${product.name}" to favorites! ❤️`);
+      }
+      return next;
+    });
+  };
+
+  const handleOpenFavorites = () => {
+    if (favorites.size === 0) {
+      showToast("You haven't saved any crops yet. Click the ❤️ on any card!");
+    } else {
+      showToast(`You have ${favorites.size} saved harvest item(s)!`);
+      setCurrentTab('view-buyer-store');
+    }
+  };
+
+  const handleSelectRole = (role: 'buyer' | 'farmer') => {
+    if (role === 'buyer') {
+      setCurrentTab('view-buyer-reg');
+    } else {
+      setCurrentTab('view-farmer-reg');
+    }
+  };
+
+  const handleSubmitFarmerReg = (data: { name: string; farm: string; location: string; phone: string }) => {
+    setCurrentUser({
+      role: 'farmer',
+      name: data.name,
+      farm: data.farm,
+      location: data.location,
+      address: data.location
+    });
+    setFarmerProduce(prev => ({ ...prev, loc: data.location }));
+    showToast(`Welcome ${data.name}! Farmer dashboard is ready.`);
+    setCurrentTab('view-farmer-dash');
+  };
+
+  const handleSubmitBuyerReg = (data: { name: string; address: string; phone: string }) => {
+    setCurrentUser({
+      role: 'buyer',
+      name: data.name,
+      farm: '',
+      location: data.address,
+      address: data.address
+    });
+    showToast(`Welcome ${data.name}! Fresh store is ready for 15-min delivery.`);
+    setCurrentTab('view-buyer-store');
+  };
+
+  const handleLogin = (role: 'buyer' | 'farmer', name: string) => {
+    if (role === 'farmer') {
+      setCurrentUser({
+        role: 'farmer',
+        name,
+        farm: 'Green Valley Organic Farm',
+        location: 'Pune, Maharashtra',
+        address: 'Pune, Maharashtra'
+      });
+      showToast(`Logged in as Farmer ${name}`);
+      setCurrentTab('view-farmer-dash');
+    } else {
+      setCurrentUser({
+        role: 'buyer',
+        name,
+        farm: '',
+        location: 'Ghaziabad, Uttar Pradesh',
+        address: 'Ghaziabad, Uttar Pradesh'
+      });
+      showToast(`Logged in as Buyer ${name}`);
+      setCurrentTab('view-buyer-store');
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser({
+      role: 'guest',
+      name: 'Guest',
+      farm: '',
+      location: '',
+      address: ''
+    });
+    showToast('Logged out successfully');
+    setCurrentTab('view-welcome');
+  };
+
+  const handleOpenJoinModal = (role?: 'buyer' | 'farmer') => {
+    setJoinModalRole(role || 'buyer');
+    setIsJoinModalOpen(true);
+  };
+
+  const handleConfirmJoin = (role: 'buyer' | 'farmer', name: string) => {
+    setIsJoinModalOpen(false);
+    handleLogin(role, name);
+  };
+
+  const handleCheckout = (appliedDiscount: number) => {
+    const orderId = `KD-${Math.floor(1000 + Math.random() * 9000)}`;
+    const itemsSummary = cartEntries.map(e => `${e.qty}x ${e.product.name}`).join(', ');
+    const discountFactor = appliedDiscount > 0 ? (100 - appliedDiscount) / 100 : 1;
+    const finalTotal = Math.round(cartTotal * discountFactor);
+    const farmerCut = Math.round(finalTotal * 0.88);
+
+    const newOrder: OrderRecord = {
+      id: orderId,
+      role: 'buyer',
+      items: itemsSummary,
+      total: finalTotal,
+      farmerPayout: farmerCut,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: '🛵 Arriving in 15 mins',
+      deliveryMinutes: 15,
+      deliveryRider: {
+        name: 'Vikas Shinde',
+        vehicle: 'Electric EV Delivery Bike',
+        rating: 4.9,
+        phone: '+91 9876543210'
+      }
+    };
+
+    setOrders(prev => [newOrder, ...prev]);
+    setCart({});
+    setIsCartOpen(false);
+
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    } catch(e) {}
+
+    showToast(`🎉 Order #${orderId} placed! 15-min delivery dispatched.`);
+    setCurrentTab('view-buyer-tracking');
+  };
+
+  const handleAddProduceSubmit = (newProduce: FarmerProduce) => {
+    setFarmerProduce(newProduce);
+    showToast(`✓ ${newProduce.qty} KG ${newProduce.crop} added to network!`);
+    setCurrentTab('view-demand-forecast');
+  };
+
+  const handleNavigateHome = () => {
+    if (currentUser.role === 'farmer') {
+      setCurrentTab('view-farmer-dash');
+    } else if (currentUser.role === 'buyer') {
+      setCurrentTab('view-buyer-store');
+    } else {
+      setCurrentTab('view-welcome');
+    }
+  };
+
+  const handleCopyCoupon = (code: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code).catch(() => {});
+    }
+    showToast(`✓ Code "${code}" copied! Use at checkout for 15% off.`);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[#fbf8ef] dark:bg-[#0d1a13] text-[#1f3427] dark:text-[#f4f8f5] transition-colors duration-200">
+      
+      {/* Top Mandi Rates Marquee */}
+      <MandiTicker />
+
+      {/* Main Top Header */}
+      <Header
+        currentLang={currentLang}
+        onLanguageChange={setCurrentLang}
+        currentUser={currentUser}
+        cartItemCount={cartItemCount}
+        cartTotal={cartTotal}
+        favoriteCount={favorites.size}
+        isDarkMode={isDarkMode}
+        onToggleTheme={() => setIsDarkMode(prev => !prev)}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenJoinModal={handleOpenJoinModal}
+        onOpenFavorites={handleOpenFavorites}
+        onLogout={handleLogout}
+        onNavigateHome={handleNavigateHome}
+        onNavigateTab={setCurrentTab}
+      />
+
+      {/* App Shell Container */}
+      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+        
+        {/* Left Sidebar */}
+        <Sidebar
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          currentUser={currentUser}
+        />
+
+        {/* Main Content Area */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-5xl overflow-hidden">
+          
+          {/* Welcome View */}
+          {currentTab === 'view-welcome' && (
+            <WelcomeView
+              currentLang={currentLang}
+              onLanguageChange={setCurrentLang}
+              onSelectRole={handleSelectRole}
+              onNavigateTab={setCurrentTab}
+              onCopyCoupon={handleCopyCoupon}
+            />
+          )}
+
+          {/* Farmer Registration */}
+          {currentTab === 'view-farmer-reg' && (
+            <FarmerRegistration
+              currentLang={currentLang}
+              onLanguageChange={setCurrentLang}
+              onSubmitFarmer={handleSubmitFarmerReg}
+              onBack={() => setCurrentTab('view-welcome')}
+            />
+          )}
+
+          {/* Buyer Registration */}
+          {currentTab === 'view-buyer-reg' && (
+            <BuyerRegistration
+              currentLang={currentLang}
+              onLanguageChange={setCurrentLang}
+              onSubmitBuyer={handleSubmitBuyerReg}
+              onBack={() => setCurrentTab('view-welcome')}
+            />
+          )}
+
+          {/* Auth Login */}
+          {currentTab === 'view-auth' && (
+            <AuthLogin
+              onLogin={handleLogin}
+              onBack={() => setCurrentTab('view-welcome')}
+            />
+          )}
+
+          {/* Buyer Fresh Store */}
+          {currentTab === 'view-buyer-store' && (
+            <BuyerStore
+              products={products}
+              cart={cart}
+              favorites={favorites}
+              buyerAddress={currentUser.address}
+              onUpdateCart={handleUpdateCart}
+              onToggleFavorite={handleToggleFavorite}
+              onNavigateTab={setCurrentTab}
+            />
+          )}
+
+          {/* Buyer Live Tracking */}
+          {currentTab === 'view-buyer-tracking' && (
+            <BuyerTracking
+              latestOrder={orders[0] || null}
+              onNavigateStore={() => setCurrentTab('view-buyer-store')}
+            />
+          )}
+
+          {/* Farmer Portal: Dashboard */}
+          {currentTab === 'view-farmer-dash' && (
+            <FarmerDashboard
+              farmerName={currentUser.name}
+              farmName={currentUser.farm}
+              farmerLoc={currentUser.location}
+              produce={farmerProduce}
+              onNavigateTab={setCurrentTab}
+            />
+          )}
+
+          {/* Farmer Portal: Add Produce */}
+          {currentTab === 'view-add-produce' && (
+            <AddProduce
+              initialProduce={farmerProduce}
+              onSubmitProduce={handleAddProduceSubmit}
+              onBack={() => setCurrentTab('view-farmer-dash')}
+            />
+          )}
+
+          {/* Farmer Portal: AI Demand Forecast */}
+          {currentTab === 'view-demand-forecast' && (
+            <DemandForecast
+              produce={farmerProduce}
+              onNext={() => setCurrentTab('view-selling-rec')}
+              onBack={() => setCurrentTab('view-add-produce')}
+            />
+          )}
+
+          {/* Farmer Portal: Selling Recommendation */}
+          {currentTab === 'view-selling-rec' && (
+            <SellingRecommendation
+              produce={farmerProduce}
+              onNext={() => setCurrentTab('view-matching')}
+              onBack={() => setCurrentTab('view-demand-forecast')}
+            />
+          )}
+
+          {/* Farmer Portal: Buyer Matching */}
+          {currentTab === 'view-matching' && (
+            <BuyerMatching
+              farmerName={currentUser.name}
+              produce={farmerProduce}
+              onNext={() => setCurrentTab('view-pooling')}
+              onBack={() => setCurrentTab('view-selling-rec')}
+            />
+          )}
+
+          {/* Farmer Portal: Quantity Pooling */}
+          {currentTab === 'view-pooling' && (
+            <QuantityPooling
+              farmerName={currentUser.name}
+              produce={farmerProduce}
+              onNext={() => setCurrentTab('view-route')}
+              onBack={() => setCurrentTab('view-matching')}
+            />
+          )}
+
+          {/* Farmer Portal: EV Pickup Route */}
+          {currentTab === 'view-route' && (
+            <PickupRoute
+              farmerName={currentUser.name}
+              produce={farmerProduce}
+              onNext={() => setCurrentTab('view-transparency')}
+              onBack={() => setCurrentTab('view-pooling')}
+            />
+          )}
+
+          {/* Farmer Portal: Price Transparency */}
+          {currentTab === 'view-transparency' && (
+            <PriceTransparency
+              produce={farmerProduce}
+              onNext={() => setCurrentTab('view-orders')}
+              onBack={() => setCurrentTab('view-route')}
+            />
+          )}
+
+          {/* Orders & Batches View */}
+          {currentTab === 'view-orders' && (
+            <OrdersView
+              userRole={currentUser.role}
+              orders={orders}
+              farmerProduce={farmerProduce}
+              onNavigateStore={() => setCurrentTab('view-buyer-store')}
+            />
+          )}
+
+        </main>
+      </div>
+
+      {/* Floating Bottom Cart Bar for mobile & fast checkout */}
+      {cartItemCount > 0 && !isCartOpen && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-lg bg-[#1e5634] text-white p-3 sm:p-4 rounded-2xl shadow-2xl z-40 flex items-center justify-between gap-3 animate-slideUp border border-[#3b7e54]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#f7c244] text-[#1f3427] flex items-center justify-center font-bold text-base">
+              🛒
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-bold">
+                {cartItemCount} Item{cartItemCount > 1 ? 's' : ''} • ₹{cartTotal}
+              </div>
+              <div className="text-[10px] text-white/80">
+                ⚡ 15-Min Express Doorstep Delivery
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsCartOpen(true)}
+            className="px-4 py-2 rounded-xl bg-[#f7c244] hover:bg-[#e6b338] text-[#1f3427] text-xs font-bold shadow-sm transition-all cursor-pointer"
+          >
+            View Basket →
+          </button>
+        </div>
+      )}
+
+      {/* Cart Flyout Drawer */}
+      <CartDrawer
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        cart={cart}
+        onUpdateCart={handleUpdateCart}
+        onCheckout={handleCheckout}
+      />
+
+      {/* Quick Join / Signup Modal */}
+      <JoinModal
+        isOpen={isJoinModalOpen}
+        initialRole={joinModalRole}
+        onClose={() => setIsJoinModalOpen(false)}
+        onConfirmJoin={handleConfirmJoin}
+      />
+
+      {/* Toast Feedback */}
+      <Toast message={toastMsg} />
+
+    </div>
+  );
+}
+
+
+
+================================================================================
+FILE: src/data/mockData.ts
+================================================================================
+
+import { ProductItem, MandiRate, Testimonial } from '../types';
+
+export const initialProducts: ProductItem[] = [
+  // --- Grains & Anaj (अनाज) ---
+  {
+    id: 'sharbati-wheat',
+    name: 'MP Sharbati Gehu (Gold Grain Wheat)',
+    hindiName: 'शरबती गेहूं (सोना मोती)',
+    category: 'grains',
+    price: 48,
+    originalPrice: 62,
+    unit: '1 kg Pack',
+    image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
+    farm: 'Sehore Organic Farms',
+    location: 'Sehore, MP',
+    tags: ['Unpolished', 'GI Tagged', 'Direct Harvest'],
+    searchKeywords: 'wheat gehu gehun sharbati anaj atta flour grain एमपी गेहूं अनाज आटा',
+    inStock: true,
+    harvestTime: 'Yesterday 4:00 PM',
+    farmerName: 'Baldev Singh Patidar',
+    farmerRating: 4.9
+  },
+  {
+    id: 'basmati-rice',
+    name: 'Aromatic Taraori Basmati Rice',
+    hindiName: 'तरावड़ी बासमती चावल',
+    category: 'grains',
+    price: 95,
+    originalPrice: 125,
+    unit: '1 kg Pack',
+    image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&auto=format&fit=crop&q=80',
+    farm: 'Karnal Heritage Fields',
+    location: 'Karnal, Haryana',
+    tags: ['Aged 2 Years', 'Long Grain', 'Zero Chemical'],
+    searchKeywords: 'rice basmati chawal chaval grain anaj चावल बासमती',
+    inStock: true,
+    harvestTime: 'Aged Harvest',
+    farmerName: 'Gurpreet Singh',
+    farmerRating: 4.9
+  },
+  {
+    id: 'desi-chana-dal',
+    name: 'Desi Unpolished Chana Dal',
+    hindiName: 'देसी चना दाल (बिना पॉलिश)',
+    category: 'grains',
+    price: 88,
+    originalPrice: 110,
+    unit: '1 kg Pack',
+    image: '/images/chana_dal.jpg',
+    farm: 'Malwa Pulse Growers',
+    location: 'Ujjain, MP',
+    tags: ['High Protein', 'Stone Ground', 'Zero Adulteration'],
+    searchKeywords: 'chana dal pulse daal gram anaj चना दाल दालें चने की दाल',
+    inStock: true,
+    harvestTime: '2 Days Ago',
+    farmerName: 'Devendra Sharma',
+    farmerRating: 4.8
+  },
+  {
+    id: 'desi-bajra-pearl-millet',
+    name: 'Desi Bajra (Pearl Millet)',
+    hindiName: 'देसी बाजरा (खेत का ताजा)',
+    category: 'grains',
+    price: 36,
+    originalPrice: 48,
+    unit: '1 kg Pack',
+    image: '/images/desi_bajra.jpg',
+    farm: 'Marwar Millet Co-op',
+    location: 'Jodhpur, Rajasthan',
+    tags: ['Millet Superfood', 'Gluten Free', 'Rain-fed'],
+    searchKeywords: 'bajra millet pearl millet anaj bajra roti बाजरा मोटा अनाज बाजरे की रोटी',
+    inStock: true,
+    harvestTime: '3 Days Ago',
+    farmerName: 'Malaram Bishnoi',
+    farmerRating: 4.9
+  },
+
+  // --- Fresh Farm Vegetables (सब्जियां) ---
+  {
+    id: 'tomatoes',
+    name: 'Desi Vine-Ripened Tomatoes',
+    hindiName: 'देसी लाल टमाटर',
+    category: 'veggies',
+    price: 32,
+    originalPrice: 45,
+    unit: '1 kg Pack',
+    image: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=600&auto=format&fit=crop&q=80',
+    farm: 'Ramesh Valley Farm',
+    location: 'Pune, Maharashtra',
+    tags: ['Naturally Ripened', 'Juicy', 'Morning Harvest'],
+    searchKeywords: 'tomato tamatar fresh desi red tomato tamatar टमाटर लाल',
+    inStock: true,
+    harvestTime: 'Today 5:30 AM',
+    farmerName: 'Ramesh Kumar',
+    farmerRating: 4.9
+  },
+  {
+    id: 'onion',
+    name: 'Nashik Pink Onions (Export Grade)',
+    hindiName: 'नासिक लाल प्याज',
+    category: 'veggies',
+    price: 28,
+    originalPrice: 38,
+    unit: '1 kg Net',
+    image: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=600&auto=format&fit=crop&q=80',
+    farm: 'Nashik Agro Orchards',
+    location: 'Nashik, Maharashtra',
+    tags: ['Crisp & Sweet', 'Zero Sprout', 'Sun Cured'],
+    searchKeywords: 'onion pyaz pyaaz nashik pink kanda प्याज कांदा',
+    inStock: true,
+    harvestTime: 'Yesterday 3:00 PM',
+    farmerName: 'Suresh Patil',
+    farmerRating: 4.8
+  },
+  {
+    id: 'potato',
+    name: 'Mountain Golden Potatoes',
+    hindiName: 'पहाड़ी ताजा आलू',
+    category: 'veggies',
+    price: 24,
+    originalPrice: 32,
+    unit: '1 kg Pack',
+    image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=600&auto=format&fit=crop&q=80',
+    farm: 'Malwa Agro Farms',
+    location: 'Indore, MP',
+    tags: ['Non-Cold Storage', 'High Starch', 'Farm Fresh'],
+    searchKeywords: 'potato aalu aloo indore batata fresh आलू बटाटा',
+    inStock: true,
+    harvestTime: 'Yesterday Morning',
+    farmerName: 'Rajendra Choudhary',
+    farmerRating: 4.7
+  },
+  {
+    id: 'bhindi-okra',
+    name: 'Desi Tender Bhindi (Lady Finger)',
+    hindiName: 'खेत की ताज़ा देसी भिंडी',
+    category: 'veggies',
+    price: 36,
+    originalPrice: 48,
+    unit: '500g Pack',
+    image: 'https://images.unsplash.com/photo-1425543103986-22abb7d7e8d2?w=600&auto=format&fit=crop&q=80',
+    farm: 'Green Valley Farms',
+    location: 'Varanasi, UP',
+    tags: ['Tender & Crisp', 'Pesticide Free', 'Morning Plucked'],
+    searchKeywords: 'bhindi okra lady finger vegetable sabji भिंडी ताज़ा हरी सब्जी',
+    inStock: true,
+    harvestTime: 'Today 5:00 AM',
+    farmerName: 'Kallu Ram Yadav',
+    farmerRating: 4.9
+  },
+  {
+    id: 'red-carrots',
+    name: 'Crisp Desi Red Carrots (Gajar)',
+    hindiName: 'मीठी ताज़ा लाल गाजर',
+    category: 'veggies',
+    price: 38,
+    originalPrice: 50,
+    unit: '1 kg Pack',
+    image: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&auto=format&fit=crop&q=80',
+    farm: 'Doab Soil Collective',
+    location: 'Meerut, UP',
+    tags: ['Naturally Sweet', 'Juicy & Crunchy', 'Direct Farm'],
+    searchKeywords: 'gajar carrot red carrot sabji halwa गाजर लाल गाजर सब्जी',
+    inStock: true,
+    harvestTime: 'Today 4:30 AM',
+    farmerName: 'Satyaveer Singh',
+    farmerRating: 4.8
+  },
+  {
+    id: 'green-peas-matar',
+    name: 'Sweet Farm Green Peas (Matar)',
+    hindiName: 'खेत की ताज़ी हरी मटर',
+    category: 'veggies',
+    price: 45,
+    originalPrice: 60,
+    unit: '1 kg Pods',
+    image: '/images/green_peas.jpg',
+    farm: 'Himalayan Foothills Farm',
+    location: 'Dehradun, Uttarakhand',
+    tags: ['Sweet Pods', 'Handpicked', 'Fresh Shelling'],
+    searchKeywords: 'matar green peas hari matar sabji मटर हरी मटर ताज़ी',
+    inStock: true,
+    harvestTime: 'Today 4:00 AM',
+    farmerName: 'Puran Chand',
+    farmerRating: 4.9
+  },
+  {
+    id: 'shimla-mirch',
+    name: 'Crisp Green Capsicum (Shimla Mirch)',
+    hindiName: 'ताज़ा हरी शिमला मिर्च',
+    category: 'veggies',
+    price: 40,
+    originalPrice: 55,
+    unit: '500g Pack',
+    image: 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?w=600&auto=format&fit=crop&q=80',
+    farm: 'Solan Greenhouse Agro',
+    location: 'Solan, HP',
+    tags: ['Glossy & Thick', 'Hydroponic Safe', 'Crunchy'],
+    searchKeywords: 'shimla mirch capsicum bell pepper sabji शिमला मिर्च हरी',
+    inStock: true,
+    harvestTime: 'Yesterday Afternoon',
+    farmerName: 'Dinesh Thakur',
+    farmerRating: 4.8
+  },
+  {
+    id: 'desi-lauki',
+    name: 'Tender Green Lauki (Bottle Gourd)',
+    hindiName: 'देसी ताज़ा लौकी (घिया / दूधी)',
+    category: 'veggies',
+    price: 26,
+    originalPrice: 35,
+    unit: '1 Pc (~800g)',
+    image: '/images/fresh_lauki.jpg',
+    farm: 'Yamuna Khadar Organic',
+    location: 'Sonipat, Haryana',
+    tags: ['Tender & Seedless', 'Detox Rich', 'Morning Plucked'],
+    searchKeywords: 'lauki bottle gourd ghiya dudhi sabji लौकी घिया दूधी',
+    inStock: true,
+    harvestTime: 'Today 5:15 AM',
+    farmerName: 'Surender Hooda',
+    farmerRating: 4.9
+  },
+  {
+    id: 'desi-baingan',
+    name: 'Desi Bharta Baingan (Eggplant)',
+    hindiName: 'देसी भरता बैंगन',
+    category: 'veggies',
+    price: 32,
+    originalPrice: 42,
+    unit: '1 kg Pack',
+    image: '/images/desi_baingan.jpg',
+    farm: 'Ganga Plains Bio Farm',
+    location: 'Prayagraj, UP',
+    tags: ['Soft Texture', 'Zero Worms', 'Great for Bharta'],
+    searchKeywords: 'baingan brinjal eggplant bharta baigan बैंगन भरता',
+    inStock: true,
+    harvestTime: 'Yesterday Evening',
+    farmerName: 'Shivshankar Pal',
+    farmerRating: 4.7
+  },
+  {
+    id: 'desi-kheera',
+    name: 'Crisp Desi Kheera (Salad Cucumber)',
+    hindiName: 'खेत का ताजा खीरा / ककड़ी',
+    category: 'veggies',
+    price: 28,
+    originalPrice: 38,
+    unit: '1 kg Pack',
+    image: 'https://images.unsplash.com/photo-1604977042946-1eecc30f269e?w=600&auto=format&fit=crop&q=80',
+    farm: 'Jaipur Oasis Orchards',
+    location: 'Jaipur, Rajasthan',
+    tags: ['Non-Waxed', 'Cool & Juicy', 'Hydration Rich'],
+    searchKeywords: 'kheera cucumber kakdi salad fresh खीरा ककड़ी सलाद',
+    inStock: true,
+    harvestTime: 'Today 6:00 AM',
+    farmerName: 'Mohan Lal Saini',
+    farmerRating: 4.9
+  },
+  {
+    id: 'chilli-ginger',
+    name: 'Spicy Green Chilli & Pahadi Adrak Combo',
+    hindiName: 'तीखी हरी मिर्च और पहाड़ी अदरक',
+    category: 'spices',
+    price: 24,
+    originalPrice: 32,
+    unit: '250g Combo Pack',
+    image: '/images/chilli_ginger.jpg',
+    farm: 'Wayanad Hill Greens',
+    location: 'Wayanad, Kerala',
+    tags: ['High Pungency', 'Fresh Root', 'Sun Washed'],
+    searchKeywords: 'hari mirch adrak ginger green chilli mirchi ginger combo मिर्च अदरक',
+    inStock: true,
+    harvestTime: 'Yesterday Morning',
+    farmerName: 'Mathew Varghese',
+    farmerRating: 4.9
+  },
+  {
+    id: 'cauliflower',
+    name: 'Snow White Cauliflower',
+    hindiName: 'खेत की ताज़ा फूलगोभी',
+    category: 'veggies',
+    price: 35,
+    originalPrice: 48,
+    unit: '1 Pc (~700g)',
+    image: 'https://images.unsplash.com/photo-1568584711075-3d021a7c3ca3?w=600&auto=format&fit=crop&q=80',
+    farm: 'Punjab Green Belt',
+    location: 'Ludhiana, Punjab',
+    tags: ['Pesticide Free', 'Crisp Floret', 'Leaf-Covered'],
+    searchKeywords: 'cauliflower phool gobhi phoolgobhi fresh फूलगोभी गोभी',
+    inStock: true,
+    harvestTime: 'Today 4:00 AM',
+    farmerName: 'Harpreet Singh',
+    farmerRating: 4.9
+  },
+
+  // --- Leafy Greens ---
+  {
+    id: 'palak',
+    name: 'Tender Organic Spinach (Palak)',
+    hindiName: 'ताज़ा देसी पालक',
+    category: 'leafy',
+    price: 18,
+    originalPrice: 26,
+    unit: '250g Bunch',
+    image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=600&auto=format&fit=crop&q=80',
+    farm: 'Polyhouse Bio Farm',
+    location: 'Satara, Maharashtra',
+    tags: ['Hydro Organic', 'Washed & Clean', 'Zero Bitter'],
+    searchKeywords: 'palak spinach leafy saag organic saag पालक साग',
+    inStock: true,
+    harvestTime: 'Today 5:00 AM',
+    farmerName: 'Anita More',
+    farmerRating: 4.9
+  },
+  {
+    id: 'desi-methi',
+    name: 'Aromatic Desi Methi (Fenugreek)',
+    hindiName: 'ताज़ा हरी मेथी की गड्डी',
+    category: 'leafy',
+    price: 20,
+    originalPrice: 28,
+    unit: '250g Bunch',
+    image: '/images/desi_methi.jpg',
+    farm: 'Kasganj Green Farms',
+    location: 'Kasganj, UP',
+    tags: ['Iron Rich', 'Naturally Grown', 'Fresh Cut'],
+    searchKeywords: 'methi fenugreek leafy saag fresh methi मेथी साग हरी पत्ती',
+    inStock: true,
+    harvestTime: 'Today 5:30 AM',
+    farmerName: 'Ganga Ram',
+    farmerRating: 4.8
+  },
+  {
+    id: 'fresh-dhaniya',
+    name: 'Desi Fragrant Coriander (Dhaniya)',
+    hindiName: 'खुशबूदार देसी हरा धनिया',
+    category: 'leafy',
+    price: 15,
+    originalPrice: 22,
+    unit: '150g Bunch',
+    image: '/images/fresh_dhaniya.jpg',
+    farm: 'Kota Valley Herbs',
+    location: 'Kota, Rajasthan',
+    tags: ['High Aroma', 'Unwashed Roots', 'Fresh Plucked'],
+    searchKeywords: 'dhaniya coriander hara dhaniya kothmir हरा धनिया कोथमीर',
+    inStock: true,
+    harvestTime: 'Today 6:00 AM',
+    farmerName: 'Chhitar Lal Gurjar',
+    farmerRating: 4.9
+  },
+
+  // --- Fruits ---
+  {
+    id: 'mango',
+    name: 'Ratnagiri Alphonso (Hapus) Mangoes',
+    hindiName: 'रत्नागिरी हापुस आम',
+    category: 'fruits',
+    price: 240,
+    originalPrice: 320,
+    unit: 'Box of 6 Pcs',
+    image: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=600&auto=format&fit=crop&q=80',
+    farm: 'Konkan Coast Orchards',
+    location: 'Ratnagiri, Maharashtra',
+    tags: ['Carbide Free', 'GI Tagged', 'Tree Ripened'],
+    searchKeywords: 'mango alphonso ratnagiri hapus aam mangoes fruit आम हापुस',
+    inStock: true,
+    harvestTime: 'Naturally Ripened',
+    farmerName: 'Prakash Rane',
+    farmerRating: 5.0
+  },
+
+  // --- Pure Dairy ---
+  {
+    id: 'a2-milk',
+    name: 'Pure Gir Cow A2 Raw Milk',
+    hindiName: 'शुद्ध गिर गाय A2 दूध',
+    category: 'dairy',
+    price: 44,
+    originalPrice: 55,
+    unit: '500 ml Glass Bottle',
+    image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600&auto=format&fit=crop&q=80',
+    farm: 'Vedic Gir Gaushala',
+    location: 'Anand, Gujarat',
+    tags: ['Grass Fed', 'Chilled Fresh', 'Glass Bottled'],
+    searchKeywords: 'milk a2 cow pure gir gaushala doodh dairy milk दूध गिर गाय',
+    inStock: true,
+    harvestTime: 'Morning Milking 5:00 AM',
+    farmerName: 'Kishore Bhai Patel',
+    farmerRating: 4.9
+  },
+
+  // --- Spices ---
+  {
+    id: 'desi-garlic',
+    name: 'High Allicin Mountain Garlic (Lahsun)',
+    hindiName: 'देसी तीखा लहसुन',
+    category: 'spices',
+    price: 48,
+    originalPrice: 65,
+    unit: '250g Pack',
+    image: 'https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=600&auto=format&fit=crop&q=80',
+    farm: 'Mandsaur Spice Valley',
+    location: 'Mandsaur, MP',
+    tags: ['Aromatic', 'Sun Dried', 'Small Cloves'],
+    searchKeywords: 'garlic lahsun lehsan spice masale लहसुन मसाला',
+    inStock: true,
+    harvestTime: 'Sun Dried Batch',
+    farmerName: 'Babulal Meena',
+    farmerRating: 4.8
+  }
+];
+
+export const mandiRates: MandiRate[] = [
+  {
+    id: 'mr-wheat-sehore',
+    mandi: 'Sehore Mandi (MP)',
+    commodity: 'Sharbati Wheat',
+    hindiCommodity: 'शरबती गेहूं',
+    price: 36,
+    unit: '₹/kg',
+    change: 3.8,
+    isUp: true,
+    apnaAnajPrice: 48
+  },
+  {
+    id: 'mr-onion-nashik',
+    mandi: 'Nashik APMC',
+    commodity: 'Pink Onion',
+    hindiCommodity: 'गुलाबी प्याज',
+    price: 19,
+    unit: '₹/kg',
+    change: 2.4,
+    isUp: true,
+    apnaAnajPrice: 28
+  },
+  {
+    id: 'mr-tomato-azadpur',
+    mandi: 'Azadpur Mandi (Delhi)',
+    commodity: 'Desi Tomato',
+    hindiCommodity: 'देसी टमाटर',
+    price: 22,
+    unit: '₹/kg',
+    change: 1.8,
+    isUp: true,
+    apnaAnajPrice: 32
+  },
+  {
+    id: 'mr-potato-indore',
+    mandi: 'Indore Mandi',
+    commodity: 'Jyoti Potato',
+    hindiCommodity: 'आलू',
+    price: 16,
+    unit: '₹/kg',
+    change: -0.6,
+    isUp: false,
+    apnaAnajPrice: 24
+  },
+  {
+    id: 'mr-chana-ujjain',
+    mandi: 'Ujjain Mandi',
+    commodity: 'Desi Chana',
+    hindiCommodity: 'देसी चना',
+    price: 64,
+    unit: '₹/kg',
+    change: 4.2,
+    isUp: true,
+    apnaAnajPrice: 88
+  },
+  {
+    id: 'mr-cauli-punjab',
+    mandi: 'Ludhiana Mandi',
+    commodity: 'Cauliflower',
+    hindiCommodity: 'फूलगोभी',
+    price: 24,
+    unit: '₹/pc',
+    change: 2.1,
+    isUp: true,
+    apnaAnajPrice: 35
+  }
+];
+
+export const testimonials: Testimonial[] = [
+  {
+    id: 't1',
+    quote: 'Before Apna Anaj, APMC mandi middlemen took 25-30% cut on every quintal of wheat and vegetables. Now, 88% comes directly into my bank account within 24 hours of dispatch!',
+    name: 'Baldev Singh Patidar',
+    role: 'Wheat & Grain Farmer · Sehore, Madhya Pradesh',
+    avatar: 'BP',
+    rating: 5,
+    badge: 'Verified Grain Producer'
+  },
+  {
+    id: 't2',
+    quote: 'The aroma and grain length of the Sharbati Gehu and Basmati Rice from Apna Anaj reminds me of my village roots. 15-minute delivery for fresh farm staples is magical!',
+    name: 'Ananya Kulkarni',
+    role: 'Home Chef & Mother · Mumbai',
+    avatar: 'AK',
+    rating: 5,
+    badge: 'Verified Buyer'
+  },
+  {
+    id: 't3',
+    quote: 'The pooling engine paired my 500kg tomato harvest with neighbor farmers Suresh and Anita. Our shared cold EV truck cut our logistics cost down to just ₹2.50/kg!',
+    name: 'Ramesh Kumar',
+    role: 'Vegetable & Horticulture Farmer · Pune, Maharashtra',
+    avatar: 'RK',
+    rating: 5,
+    badge: 'Eco-Logistics Pioneer'
+  }
+];
+
+
+
+================================================================================
+FILE: src/data/translations.ts
+================================================================================
+
+import { LanguageCode } from '../types';
+
+export interface TranslationStrings {
+  name: string;
+  nativeName: string;
+  flag: string;
+  brandTagline: string;
+  heroEyebrow: string;
+  welcomeTitle: string;
+  welcomeSub: string;
+  btnHeroBuyer: string;
+  btnHeroFarmer: string;
+  directNote: string;
+  directNoteSub: string;
+  imp1: string;
+  imp2: string;
+  imp3: string;
+  imp4: string;
+  impMsg: string;
+  langSelectHeading: string;
+  whoAreYou: string;
+  buyerTitle: string;
+  buyerSub: string;
+  btnBuyer: string;
+  farmerTitle: string;
+  farmerSub: string;
+  btnFarmer: string;
+  haveAccount: string;
+  loginLink: string;
+  mandiTickerTitle: string;
+  howItWorksEyebrow: string;
+  howItWorksHeading: string;
+  howItWorksSub: string;
+  step1Title: string;
+  step1Desc: string;
+  step2Title: string;
+  step2Desc: string;
+  step3Title: string;
+  step3Desc: string;
+  rewardsHeading: string;
+  rewardsSub: string;
+  copyCouponBtn: string;
+  couponCodeText: string;
+  couponDesc: string;
+  storiesHeading: string;
+  storiesSub: string;
+  footerTagline: string;
+  footerCopyright: string;
+}
+
+export const translations: Record<LanguageCode, TranslationStrings> = {
+  en: {
+    name: 'English',
+    nativeName: 'English',
+    flag: '🇬🇧',
+    brandTagline: 'Farm to Fork, Without Middlemen',
+    heroEyebrow: 'The Fairer Way to Buy Fresh Produce',
+    welcomeTitle: 'Pure food starts with a<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">direct connection.</em>',
+    welcomeSub: 'Meet verified Indian farmers behind your daily anaj, veggies, and fruits. Source directly with 100% transparent pricing and 15-minute home delivery.',
+    btnHeroBuyer: 'Shop Fresh Harvests',
+    btnHeroFarmer: '🧑‍🌾 Farmer Portal',
+    directNote: '88% Direct to Farmer',
+    directNoteSub: '0% Middleman Cut',
+    imp1: 'Tonnes Traded',
+    imp2: 'Verified Farmers',
+    imp3: 'States Connected',
+    imp4: 'Community Rating',
+    impMsg: 'Every order supports <strong>fair livelihood for Indian farmers</strong>.',
+    langSelectHeading: 'Select Language (अपनी भाषा चुनें)',
+    whoAreYou: 'What is your role on Apna Anaj?',
+    buyerTitle: 'I am a Buyer',
+    buyerSub: 'Order farm-fresh grains, vegetables, fruits, and dairy delivered straight to your home in 15 minutes.',
+    btnBuyer: 'Start Shopping',
+    farmerTitle: 'I am a Farmer',
+    farmerSub: 'List your harvested grains & crops, discover AI demand forecasts, and sell directly with zero commissions.',
+    btnFarmer: 'Open Farmer Portal',
+    haveAccount: 'Already have an account?',
+    loginLink: 'Login here',
+    mandiTickerTitle: 'Live Mandi vs Apna Anaj Direct Rates',
+    howItWorksEyebrow: 'Simple By Design',
+    howItWorksHeading: 'From fertile soil to <em class="text-[#276b45] dark:text-[#4ade80] not-italic">your table.</em>',
+    howItWorksSub: 'One direct route from the hardworking farmers who grow your food to the families who enjoy it.',
+    step1Title: 'Find Your Harvest',
+    step1Desc: 'Browse verified organic farms and see real harvest timestamps and location origins.',
+    step2Title: 'Meet Your Farmer',
+    step2Desc: 'Get authentic farm prices, see zero middleman cuts, and order with 100% confidence.',
+    step3Title: 'Grow The Good',
+    step3Desc: 'Enjoy 15-minute express delivery while your purchase directly empowers local farming communities.',
+    rewardsHeading: 'Good choices come with <em class="text-[#f8ce58] not-italic">honest rewards.</em>',
+    rewardsSub: 'Save 15% on your first farm harvest order. Your family gets pure nutrition and farmers get fair pay.',
+    copyCouponBtn: 'Copy first-order code',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: '15% INSTANT SAVINGS ON FIRST ORDER',
+    storiesHeading: 'Real people. <em class="text-[#276b45] dark:text-[#4ade80] not-italic">Real difference.</em>',
+    storiesSub: 'The best part of Apna Anaj is the genuine bond built between farmers and households.',
+    footerTagline: 'Better food. Better prices. Transparent agriculture.',
+    footerCopyright: '© 2026 Apna Anaj Inc. Built with care for Indian Farmers & Families.'
+  },
+  hinglish: {
+    name: 'Hinglish',
+    nativeName: 'Hinglish',
+    flag: '🇮🇳',
+    brandTagline: 'Khet Se Seedha Thali Tak, Zero Middlemen',
+    heroEyebrow: 'Direct Kisaan Se Taaza Khana',
+    welcomeTitle: 'Shuddh Anaj aur Sabzi,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">seedha aapke ghar tak.</em>',
+    welcomeSub: 'Local verified farmers se taaza anaj, sabziyan aur fruits order kijiye. 100% transparent rates aur 15 minute me seedha home delivery.',
+    btnHeroBuyer: 'Taaza Shopping Shuru Karein',
+    btnHeroFarmer: '🧑‍🌾 Kisaan Portal',
+    directNote: '88% Seedha Kisaan Ko',
+    directNoteSub: 'Zero Middleman Commission',
+    imp1: 'Tonnes Anaj Traded',
+    imp2: 'Verified Kisaan',
+    imp3: 'States Connected',
+    imp4: 'Rating Stars',
+    impMsg: 'Har order se seedha <strong>deshi kisaano ki unnati</strong> hoti hai.',
+    langSelectHeading: 'Bhasha Chunein (Select Language)',
+    whoAreYou: 'Aap Apna Anaj par kya karna chahte hain?',
+    buyerTitle: 'Main Buyer Hoon (Kharidaar)',
+    buyerSub: 'Khet se taaza anaj, daal, sabziyan aur dairy 15 minute me ghar mangwayein.',
+    btnBuyer: 'Kharidari Shuru Karein',
+    farmerTitle: 'Main Farmer Hoon (Kisaan)',
+    farmerSub: 'Apni fasal list karein, AI se sahi mandi bhav jaanein aur seedha bechein.',
+    btnFarmer: 'Kisaan Portal Kholein',
+    haveAccount: 'Pehle se account hai?',
+    loginLink: 'Yahan Login karein',
+    mandiTickerTitle: 'Live Mandi Bhav vs Apna Anaj Direct Bhav',
+    howItWorksEyebrow: 'Aasan aur Transparent',
+    howItWorksHeading: 'Khet se lekar <em class="text-[#276b45] dark:text-[#4ade80] not-italic">aapki rasoi tak.</em>',
+    howItWorksSub: 'Kisaan ki mehnat ka pura daam aur aapke parivaar ke liye shuddh poshan.',
+    step1Title: 'Taaza Fasal Chunein',
+    step1Desc: 'Nearby farms se wheat, rice, daal aur sabziyan direct check karein.',
+    step2Title: 'Kisaan Ka Source Dekhein',
+    step2Desc: '100% honest pricing aur 0% commission ke sath order karein.',
+    step3Title: '15 Min Me Delivery',
+    step3Desc: 'Taaza harvest 15 minute me doorstep par paayein.',
+    rewardsHeading: 'Taaza khana aur sath me <em class="text-[#f8ce58] not-italic">badi bachat.</em>',
+    rewardsSub: 'Apne pehle order par paayein 15% instant discount coupon.',
+    copyCouponBtn: 'Coupon Copy Karein',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: '15% INSTANT SAVINGS ON FIRST ORDER',
+    storiesHeading: 'Sacchi Kahaniyan. <em class="text-[#276b45] dark:text-[#4ade80] not-italic">Saccha Badlaav.</em>',
+    storiesSub: 'Apna Anaj se jude hazaron kisaano aur parivaaron ka vishwas.',
+    footerTagline: 'Shuddh Anaj. Sahi Daam. Desh Ka Vikas.',
+    footerCopyright: '© 2026 Apna Anaj Inc. Desh ke kisaano aur parivaaron ke liye samarpit.'
+  },
+  hi: {
+    name: 'Hindi',
+    nativeName: 'हिंदी',
+    flag: '🇮🇳',
+    brandTagline: 'खेत से थाली तक, बिना बिचौलियों के',
+    heroEyebrow: 'ताज़ा व पारदर्शी खरीद प्रणाली',
+    welcomeTitle: 'शुद्ध अनाज और ताज़ा भोजन,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">सीधा आपके घर।</em>',
+    welcomeSub: 'सत्यापित भारतीय किसानों से सीधे अनाज, दालें, फल व सब्ज़ियां मंगवाएं। १००% पारदर्शी मूल्य और १५ मिनट में एक्सप्रेस होम डिलीवरी।',
+    btnHeroBuyer: 'ताज़ा फसलें खरीदें',
+    btnHeroFarmer: '🧑‍🌾 किसान पोर्टल',
+    directNote: '८८% सीधा किसान को',
+    directNoteSub: 'शून्य बिचौलिया शुल्क',
+    imp1: 'टन अनाज का व्यापार',
+    imp2: 'सत्यापित किसान',
+    imp3: 'जुड़े हुए राज्य',
+    imp4: 'समुदाय रेटिंग',
+    impMsg: 'प्रत्येक ऑर्डर सीधे <strong>भारतीय किसानों की भलाई और उन्नति</strong> में योगदान देता है।',
+    langSelectHeading: 'अपनी भाषा चुनें (Select Language)',
+    whoAreYou: 'आप अपना अनाज (Apna Anaj) पर क्या करना चाहते हैं?',
+    buyerTitle: 'मैं खरीदार हूँ (Buyer)',
+    buyerSub: 'खेत से ताज़ा अनाज, सब्ज़ियां, फल व डेयरी उत्पाद १५ मिनट में घर मंगवाएं।',
+    btnBuyer: 'खरीदारी शुरू करें',
+    farmerTitle: 'मैं किसान हूँ (Farmer)',
+    farmerSub: 'अपनी फसल लिस्ट करें, AI से उचित मंडी भाव जानें और बिना दलाली के सीधे बेचें।',
+    btnFarmer: 'किसान पोर्टल खोलें',
+    haveAccount: 'पहले से खाता है?',
+    loginLink: 'यहाँ लॉगिन करें',
+    mandiTickerTitle: 'लाइव मंडी भाव बनाम अपना अनाज सीधा भाव',
+    howItWorksEyebrow: 'सरल एवं पारदर्शी',
+    howItWorksHeading: 'खेत की मिट्टी से <em class="text-[#276b45] dark:text-[#4ade80] not-italic">आपकी रसोई तक।</em>',
+    howItWorksSub: 'मेहनती किसानों से लेकर आपके परिवार तक शुद्ध अनाज पहुँचाने का सीधा माध्यम।',
+    step1Title: 'अपनी फसल चुनें',
+    step1Desc: 'स्थानीय खेतों से ताज़ा गेहूं, चावल, दालें और सब्ज़ियां ब्राउज़ करें।',
+    step2Title: 'किसान का विवरण देखें',
+    step2Desc: 'बिना बिचौलियों के १००% पारदर्शी और उचित दामों पर ऑर्डर करें।',
+    step3Title: '१५ मिनट में डिलीवरी',
+    step3Desc: 'सुबह का ताज़ा हार्वेस्ट सीधे आपके दरवाज़े तक पहुँचेगा।',
+    rewardsHeading: 'ताज़ा आहार और साथ में <em class="text-[#f8ce58] not-italic">विशेष बचत।</em>',
+    rewardsSub: 'अपने पहले ऑर्डर पर १५% की तुरंत छूट पाएं। कोड कॉपी करें और लाभ उठाएं।',
+    copyCouponBtn: 'कूपन कोड कॉपी करें',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: 'पहले ऑर्डर पर १५% तुरंत छूट',
+    storiesHeading: 'सच्चे किसान। <em class="text-[#276b45] dark:text-[#4ade80] not-italic">सच्चा बदलाव।</em>',
+    storiesSub: 'अपना अनाज से जुड़कर किसानों की आय बढ़ी और परिवारों को शुद्ध भोजन मिला।',
+    footerTagline: 'शुद्ध अनाज। उचित दाम। किसान का सम्मान।',
+    footerCopyright: '© २०२६ अपना अनाज (Apna Anaj). भारतीय किसानों और परिवारों के लिए।'
+  },
+  mr: {
+    name: 'Marathi',
+    nativeName: 'मराठी',
+    flag: '🇮🇳',
+    brandTagline: 'शेतातून थेट ताटात, दलालांशिवाय',
+    heroEyebrow: '१००% थेट शेतकरी नेटवर्क',
+    welcomeTitle: 'शुद्ध धान्य आणि ताजे अन्न,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">थेट आपल्या घरात.</em>',
+    welcomeSub: 'स्थानिक शेतकऱ्यांकडून थेट ताजे धान्य, फळे व भाज्या मागवा. १५ मिनिटांत जलद घरपोच डिलिव्हरी आणि पारदर्शक भाव.',
+    btnHeroBuyer: 'खरेदी सुरू करा',
+    btnHeroFarmer: '🧑‍🌾 शेतकरी पोर्टल',
+    directNote: '८८% थेट शेतकऱ्याला',
+    directNoteSub: 'शून्य दलाली शुल्क',
+    imp1: 'टन धान्य व्यापार',
+    imp2: 'जोडलेले शेतकरी',
+    imp3: 'राज्ये जोडली',
+    imp4: 'ग्राहकांचे रेटिंग',
+    impMsg: 'प्रत्येक ऑर्डरमुळे <strong>शेतकऱ्यांना योग्य हमीभाव</strong> मिळतो.',
+    langSelectHeading: 'भाषा निवडा (Select Language)',
+    whoAreYou: 'तुम्ही Apna Anaj वर काय करू इच्छिता?',
+    buyerTitle: 'मी खरेदीदार आहे (Buyer)',
+    buyerSub: 'शेतातून ताजे धान्य, भाज्या, फळे आणि दूध १५ मिनिटांत घरपोच मिळवा.',
+    btnBuyer: 'खरेदी सुरू करा',
+    farmerTitle: 'मी शेतकरी आहे (Farmer)',
+    farmerSub: 'आपले पीक थेट विका आणि AI द्वारे योग्य हमीभाव मिळवा.',
+    btnFarmer: 'शेतकरी पोर्टल उघडा',
+    haveAccount: 'आधीच खाते आहे?',
+    loginLink: 'येथे लॉगिन करा',
+    mandiTickerTitle: 'थेट बाजारभाव',
+    howItWorksEyebrow: 'पारदर्शक आणि सोपे',
+    howItWorksHeading: 'शेतातून थेट <em class="text-[#276b45] dark:text-[#4ade80] not-italic">आपल्या घरात.</em>',
+    howItWorksSub: 'कष्टकरी शेतकऱ्यांकडून थेट आपल्या कुटुंबासाठी ताजे धान्य.',
+    step1Title: 'पीक निवडा',
+    step1Desc: 'स्थानिक शेतातील ताजे अन्न व भाजीपाला निवडा.',
+    step2Title: 'शेतकऱ्यांची माहिती',
+    step2Desc: 'दलालांशिवाय १००% प्रामाणिक भावात खरेदी करा.',
+    step3Title: '१५ मिनिटांत डिलिव्हरी',
+    step3Desc: 'सकाळची ताजी काढणी आपल्या दारात.',
+    rewardsHeading: 'चांगल्या निवडीसोबत <em class="text-[#f8ce58] not-italic">मोठी बचत.</em>',
+    rewardsSub: 'तुमच्या पहिल्या ऑर्डरवर १५% थेट सवलत मिळवा.',
+    copyCouponBtn: 'कोड कॉपी करा',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: 'पहिल्या ऑर्डरवर १५% सवलत',
+    storiesHeading: 'खऱ्या लोकांचे <em class="text-[#276b45] dark:text-[#4ade80] not-italic">खरे अनुभव.</em>',
+    storiesSub: 'Apna Anaj मुळे हजारो शेतकरी आणि ग्राहक आनंदी आहेत.',
+    footerTagline: 'उत्तम धान्य. योग्य भाव. शेतकऱ्यांची प्रगती.',
+    footerCopyright: '© २०२६ Apna Anaj Inc. शेतकऱ्यांसाठी आणि कुटुंबांसाठी.'
+  },
+  pa: {
+    name: 'Punjabi',
+    nativeName: 'ਪੰਜਾਬੀ',
+    flag: '🇮🇳',
+    brandTagline: 'ਖੇਤਾਂ ਤੋਂ ਸਿੱਧਾ ਥਾਲੀ ਤੱਕ',
+    heroEyebrow: '100% ਸਿੱਧਾ ਕਿਸਾਨ ਨੈੱਟਵਰਕ',
+    welcomeTitle: 'ਸ਼ੁੱਧ ਅਨਾਜ ਤੇ ਤਾਜ਼ਾ ਭੋਜਨ,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">ਸਿੱਧਾ ਤੁਹਾਡੇ ਘਰ।</em>',
+    welcomeSub: 'ਸਥਾਨਕ ਕਿਸਾਨਾਂ ਤੋਂ ਤਾਜ਼ੀਆਂ ਫ਼ਸਲਾਂ, ਕਣਕ, ਦਾਲਾਂ ਤੇ ਸਬਜ਼ੀਆਂ ਮੰਗਵਾਓ। 15 ਮਿੰਟਾਂ ਵਿੱਚ ਤੇਜ਼ ਹੋਮ ਡਿਲੀਵਰੀ।',
+    btnHeroBuyer: 'ਖਰੀਦਦਾਰੀ ਸ਼ੁਰੂ ਕਰੋ',
+    btnHeroFarmer: '🧑‍🌾 ਕਿਸਾਨ ਪੋਰਟਲ',
+    directNote: '88% ਸਿੱਧਾ ਕਿਸਾਨ ਨੂੰ',
+    directNoteSub: '0% ਵਿਚੋਲੀਆ ਫੀਸ',
+    imp1: 'ਟਨ ਵਪਾਰ',
+    imp2: 'ਜੁੜੇ ਕਿਸਾਨ',
+    imp3: 'ਰਾਜ ਜੁੜੇ',
+    imp4: 'ਰੇਟਿੰਗ',
+    impMsg: 'ਹਰ ਆਰਡਰ <strong>ਕਿਸਾਨਾਂ ਦੀ ਖੁਸ਼ਹਾਲੀ</strong> ਵਿੱਚ ਹਿੱਸਾ ਪਾਉਂਦਾ ਹੈ।',
+    langSelectHeading: 'ਭਾਸ਼ਾ ਚੁਣੋ (Select Language)',
+    whoAreYou: 'ਤੁਸੀਂ Apna Anaj ਤੇ ਕੀ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?',
+    buyerTitle: 'ਮੈਂ ਖਰੀਦਦਾਰ ਹਾਂ (Buyer)',
+    buyerSub: '15 ਮਿੰਟਾਂ ਵਿੱਚ ਤਾਜ਼ਾ ਅਨਾਜ, ਸਬਜ਼ੀਆਂ ਤੇ ਦੁੱਧ ਘਰ ਮੰਗਵਾਓ।',
+    btnBuyer: 'ਖਰੀਦਦਾਰੀ ਸ਼ੁਰੂ ਕਰੋ',
+    farmerTitle: 'ਮੈਂ ਕਿਸਾਨ ਹਾਂ (Farmer)',
+    farmerSub: 'ਆਪਣੀ ਫ਼ਸਲ ਸਿੱਧੀ ਵੇਚੋ ਅਤੇ AI ਨਾਲ ਸਹੀ ਕੀਮਤ ਪਾਓ।',
+    btnFarmer: 'ਕਿਸਾਨ ਪੋਰਟਲ ਖੋਲ੍ਹੋ',
+    haveAccount: 'ਪਹਿਲਾਂ ਤੋਂ ਖਾਤਾ ਹੈ?',
+    loginLink: 'ਇੱਥੇ ਲੌਗਇਨ ਕਰੋ',
+    mandiTickerTitle: 'ਲਾਈਵ ਮੰਡੀ ਭਾਅ',
+    howItWorksEyebrow: 'ਸੌਖਾ ਤੇ ਪਾਰਦਰਸ਼ੀ',
+    howItWorksHeading: 'ਖੇਤਾਂ ਤੋਂ <em class="text-[#276b45] dark:text-[#4ade80] not-italic">ਤੁਹਾਡੀ ਰਸੋਈ ਤੱਕ।</em>',
+    howItWorksSub: 'ਕਿਸਾਨਾਂ ਦੀ ਮਿਹਨਤ ਦਾ ਪੂਰਾ ਮੁੱਲ।',
+    step1Title: 'ਫ਼ਸਲ ਚੁਣੋ',
+    step1Desc: 'ਤਾਜ਼ੀ ਕਣਕ, ਬਾਸਮਤੀ ਅਤੇ ਸਬਜ਼ੀਆਂ ਦੇਖੋ।',
+    step2Title: 'ਕਿਸਾਨ ਨਾਲ ਜੁੜੋ',
+    step2Desc: 'ਬਿਨਾਂ ਕਿਸੇ ਕਮਿਸ਼ਨ ਦੇ ਸਹੀ ਭਾਅ ਪਾਓ।',
+    step3Title: '15 ਮਿੰਟ ਡਿਲੀਵਰੀ',
+    step3Desc: 'ਤਾਜ਼ਾ ਮਾਲ ਸਿੱਧਾ ਘਰ ਪਹੁੰਚੇਗਾ।',
+    rewardsHeading: 'ਤਾਜ਼ੇ ਅਨਾਜ ਨਾਲ <em class="text-[#f8ce58] not-italic">ਵੱਡੀ ਬਚਤ।</em>',
+    rewardsSub: 'ਪਹਿਲੇ ਆਰਡਰ ਤੇ 15% ਛੋਟ ਪ੍ਰਾਪਤ ਕਰੋ।',
+    copyCouponBtn: 'ਕੋਡ ਕਾਪੀ ਕਰੋ',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: 'ਪਹਿਲੇ ਆਰਡਰ ਤੇ 15% ਛੋਟ',
+    storiesHeading: 'ਕਿਸਾਨਾਂ ਦਾ <em class="text-[#276b45] dark:text-[#4ade80] not-italic">ਸੱਚਾ ਵਿਸ਼ਵਾਸ।</em>',
+    storiesSub: 'Apna Anaj ਨਾਲ ਜੁੜੇ ਕਿਸਾਨ ਖੁਸ਼ਹਾਲ ਹਨ।',
+    footerTagline: 'ਸ਼ੁੱਧ ਅਨਾਜ। ਸਹੀ ਮੁੱਲ। ਕਿਸਾਨ ਦੀ ਜਿੱਤ।',
+    footerCopyright: '© 2026 Apna Anaj Inc. ਕਿਸਾਨਾਂ ਲਈ ਸਮਰਪਿਤ।'
+  },
+  gu: {
+    name: 'Gujarati',
+    nativeName: 'ગુજરાતી',
+    flag: '🇮🇳',
+    brandTagline: 'ખેતરથી સીધું થાળી સુધી',
+    heroEyebrow: '૧૦૦% સીધું ખેડૂત નેટવર્ક',
+    welcomeTitle: 'શુદ્ધ અનાજ અને તાજું ભોજન,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">સીધું આપના ઘેર.</em>',
+    welcomeSub: 'સ્થાનિક ખેડૂતો પાસેથી તાજા અનાજ, શાકભાજી અને ફળો ૧૫ મિનિટમાં મેળવો.',
+    btnHeroBuyer: 'ખરીદી શરૂ કરો',
+    btnHeroFarmer: '🧑‍🌾 ખેડૂત પોર્ટલ',
+    directNote: '૮૮% સીધું ખેડૂતને',
+    directNoteSub: 'શૂન્ય વચેટિયા ખર્ચ',
+    imp1: 'ટન વેપાર',
+    imp2: 'જોડાયેલા ખેડૂતો',
+    imp3: 'રાજ્યો જોડાયા',
+    imp4: 'રેટિંગ',
+    impMsg: 'દરેક ઓર્ડર <strong>ખેડૂતોના સશક્તિકરણ</strong> માટે મદદરૂપ છે.',
+    langSelectHeading: 'ભાષા પસંદ કરો (Select Language)',
+    whoAreYou: 'તમે Apna Anaj પર શું કરવા માંગો છો?',
+    buyerTitle: 'હું ખરીદનાર છું (Buyer)',
+    buyerSub: 'ખેતરનું તાજું અનાજ અને શાકભાજી ૧૫ મિનિટમાં ઘેર મેળવો.',
+    btnBuyer: 'ખરીદી શરૂ કરો',
+    farmerTitle: 'હું ખેડૂત છું (Farmer)',
+    farmerSub: 'વચેટિયા વગર તમારો પાક સીધો વેચો અને સારો ભાવ મેળવો.',
+    btnFarmer: 'ખેડૂત પોર્ટલ ખોલો',
+    haveAccount: 'પહેલેથી ખાતું છે?',
+    loginLink: 'અહીં લૉગિન કરો',
+    mandiTickerTitle: 'લાઈવ માર્કેટ યાર્ડ ભાવ',
+    howItWorksEyebrow: 'સરળ અને પારદર્શક',
+    howItWorksHeading: 'ખેતરથી સીધું <em class="text-[#276b45] dark:text-[#4ade80] not-italic">આપના ઘેર.</em>',
+    howItWorksSub: 'ખેડૂતોની મહેનત અને શુદ્ધ આહારનું સીધું જોડાણ.',
+    step1Title: 'પાક પસંદ કરો',
+    step1Desc: 'તાજા ઘઉં, ચોખા અને શાકભાજી શોધો.',
+    step2Title: 'ખેડૂતની વિગત',
+    step2Desc: 'કોઈ પણ કમિશન વગર યોગ્ય ભાવે ખરીદો.',
+    step3Title: '૧૫ મિનિટમાં ડિલિવરી',
+    step3Desc: 'સવારની તાજી લણણી સીધી આપના દરવાજે.',
+    rewardsHeading: 'શુદ્ધ અન્ન અને સાથે <em class="text-[#f8ce58] not-italic">મોટી બચત.</em>',
+    rewardsSub: 'પ્રથમ ઓર્ડર પર ૧૫% ડિસ્કાઉન્ટ મેળવો.',
+    copyCouponBtn: 'કોડ કોપી કરો',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: 'પ્રથમ ઓર્ડર પર ૧૫% ડિસ્કાઉન્ટ',
+    storiesHeading: 'સાચા લોકો. <em class="text-[#276b45] dark:text-[#4ade80] not-italic">સાચો બદલાવ.</em>',
+    storiesSub: 'Apna Anaj સાથે ખેડૂતો અને પરિવારો ખુશહાલ છે.',
+    footerTagline: 'શુદ્ધ અનાજ. સાચો ભાવ. ખેડૂતનો વિકાસ.',
+    footerCopyright: '© 2026 Apna Anaj Inc. ખેડૂતો માટે સમર્પિત.'
+  },
+  bn: {
+    name: 'Bengali',
+    nativeName: 'বাংলা',
+    flag: '🇮🇳',
+    brandTagline: 'ক্ষেত থেকে সরাসরি ঘরে',
+    heroEyebrow: '১০০% সরাসরি কৃষক নেটওয়ার্ক',
+    welcomeTitle: 'খাঁটি শস্য ও তাজা খাদ্য,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">সরাসরি আপনার ঘরে।</em>',
+    welcomeSub: 'স্থানীয় কৃষকদের কাছ থেকে তাজা চাল, ডাল, শাকসবজি ও ফলমূল অর্ডার করুন। ১৫ মিনিটে দ্রুত ডেলিভারি।',
+    btnHeroBuyer: 'কেনাকাটা শুরু করুন',
+    btnHeroFarmer: '🧑‍🌾 কৃষক পোর্টাল',
+    directNote: '৮৮% সরাসরি কৃষকের কাছে',
+    directNoteSub: '০% মধ্যস্বত্বভোগী কমিশন',
+    imp1: 'টন ফসল',
+    imp2: 'যুক্ত কৃষক',
+    imp3: 'সংযুক্ত রাজ্য',
+    imp4: 'রেটিং',
+    impMsg: 'প্রতিটি অর্ডার <strong>কৃষকদের সরাসরি সহায়তা</strong> করে।',
+    langSelectHeading: 'ভাষা নির্বাচন করুন (Select Language)',
+    whoAreYou: 'আপনি Apna Anaj-এ কি করতে চান?',
+    buyerTitle: 'আমি ক্রেতা (Buyer)',
+    buyerSub: 'ক্ষেতের তাজা খাদ্যশস্য ও শাকসবজি ১৫ মিনিটে ঘরে পান।',
+    btnBuyer: 'কেনাকাটা শুরু করুন',
+    farmerTitle: 'আমি কৃষক (Farmer)',
+    farmerSub: 'সরাসরি ফসল বিক্রি করুন এবং AI মূল্যের পূর্বাভাস জানুন।',
+    btnFarmer: 'কৃষক পোর্টাল খুলুন',
+    haveAccount: 'ইতিমধ্যে অ্যাকাউন্ট আছে?',
+    loginLink: 'এখানে লগইন করুন',
+    mandiTickerTitle: 'লাইভ মন্ডি রেট',
+    howItWorksEyebrow: 'সহজ ও স্বচ্ছ',
+    howItWorksHeading: 'ক্ষেত থেকে <em class="text-[#276b45] dark:text-[#4ade80] not-italic">আপনার হেঁশেলে।</em>',
+    howItWorksSub: 'কৃষকের শ্রমের সঠিক মূল্যায়ন।',
+    step1Title: 'ফসল বাছুন',
+    step1Desc: 'তাজা চাল, গম ও শাকসবজি দেখুন।',
+    step2Title: 'কৃষকের তথ্য',
+    step2Desc: 'কোনো দালাল ছাড়া সঠিক দামে কিনুন।',
+    step3Title: '১৫ মিনিটে ডেলিভারি',
+    step3Desc: 'তাজা পণ্য দ্রুত আপনার দরজায়।',
+    rewardsHeading: 'খাঁটি আহারের সাথে <em class="text-[#f8ce58] not-italic">বিশেষ ছাড়।</em>',
+    rewardsSub: 'প্রথম অর্ডারে ১৫% তাৎক্ষণিক ছাড় পান।',
+    copyCouponBtn: 'কুপন কোড কপি করুন',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: 'প্রথম অর্ডারে ১৫% ছাড়',
+    storiesHeading: 'কৃষকদের <em class="text-[#276b45] dark:text-[#4ade80] not-italic">সত্যিকারের বিশ্বাস।</em>',
+    storiesSub: 'Apna Anaj কৃষক ও পরিবারের মেলবন্ধন।',
+    footerTagline: 'খাঁটি শস্য। ন্যায্য মূল্য। কৃষকের জয়।',
+    footerCopyright: '© 2026 Apna Anaj Inc. কৃষকদের জন্য নিবেদিত।'
+  },
+  te: {
+    name: 'Telugu',
+    nativeName: 'తెలుగు',
+    flag: '🇮🇳',
+    brandTagline: 'పొలం నుండి నేరుగా మీ ఇంటికే',
+    heroEyebrow: '100% ప్రత్యక్ష రైతు నెట్‌వర్క్',
+    welcomeTitle: 'స్వచ్ఛమైన ధాన్యాలు మరియు తాజా ఆహారం,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">నేరుగా మీ ఇంటి వద్దకే.</em>',
+    welcomeSub: 'స్థానిక రైతుల నుండి నేరుగా బియ్యం, పప్పులు, కూరగాయలు ఆర్డర్ చేయండి. 15 నిమిషాల్లో ఎక్స్‌ప్రెస్ డెలివరీ.',
+    btnHeroBuyer: 'షాపింగ్ ప్రారంభించండి',
+    btnHeroFarmer: '🧑‍🌾 రైతు పోర్టల్',
+    directNote: '88% నేరుగా రైతుకే',
+    directNoteSub: '0% దళారీ కమీషన్',
+    imp1: 'టన్నుల వ్యాపారం',
+    imp2: 'చేరిన రైతులు',
+    imp3: 'రాష్ట్రాలు',
+    imp4: 'రేటింగ్',
+    impMsg: 'ప్రతి ఆర్డర్ <strong>రైతుల శ్రేయస్సుకు</strong> తోడ్పడుతుంది.',
+    langSelectHeading: 'భాషను ఎంచుకోండి (Select Language)',
+    whoAreYou: 'మీరు Apna Anaj లో ఏం చేయాలనుకుంటున్నారు?',
+    buyerTitle: 'నేను కొనుగోలుదారుని (Buyer)',
+    buyerSub: '15 నిమిషాల్లో తాజా ధాన్యాలు, కూరగాయలు మరియు పండ్లను ఇంట్లోనే పొందండి.',
+    btnBuyer: 'షాపింగ్ ప్రారంభించండి',
+    farmerTitle: 'నేను రైతును (Farmer)',
+    farmerSub: 'దళారులు లేకుండా మీ పంటను నేరుగా విక్రయించి మంచి లాభం పొందండి.',
+    btnFarmer: 'రైతు పోర్టల్ తెరవండి',
+    haveAccount: 'ఇప్పటికే ఖాతా ఉందా?',
+    loginLink: 'ఇక్కడ లాగిన్ అవ్వండి',
+    mandiTickerTitle: 'ప్రత్యక్ష మార్కెట్ ధరలు',
+    howItWorksEyebrow: 'సులభం & పారదర్శకం',
+    howItWorksHeading: 'పొలం నుండి <em class="text-[#276b45] dark:text-[#4ade80] not-italic">మీ ఇంటికి.</em>',
+    howItWorksSub: 'రైతు కష్టానికి తగిన ప్రతిఫలం.',
+    step1Title: 'పంటను ఎంచుకోండి',
+    step1Desc: 'స్వచ్ఛమైన ధాన్యాలు మరియు కూరగాయలను చూడండి.',
+    step2Title: 'రైతు వివరాలు',
+    step2Desc: 'మధ్యవర్తులు లేకుండా సరసమైన ధరకే పొందండి.',
+    step3Title: '15 నిమిషాల డెలివరీ',
+    step3Desc: 'తాజా పంట నేరుగా మీ గుమ్మం ముందుకు.',
+    rewardsHeading: 'స్వచ్ఛమైన ఆహారంతో పాటు <em class="text-[#f8ce58] not-italic">మంచి ఆదా.</em>',
+    rewardsSub: 'మొదటి ఆర్డర్‌పై 15% తగ్గింపు పొందండి.',
+    copyCouponBtn: 'కోడ్ కాపీ చేయండి',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: 'మొదటి ఆర్డర్‌పై 15% తగ్గింపు',
+    storiesHeading: 'రైతుల <em class="text-[#276b45] dark:text-[#4ade80] not-italic">నిజమైన నమ్మకం.</em>',
+    storiesSub: 'Apna Anaj ద్వారా వేలాది రైతులు లాభపడుతున్నారు.',
+    footerTagline: 'స్వచ్ఛమైన ఆహారం. సరసమైన ధర. రైతు పురోగతి.',
+    footerCopyright: '© 2026 Apna Anaj Inc. రైతుల కోసం.'
+  },
+  ta: {
+    name: 'Tamil',
+    nativeName: 'தமிழ்',
+    flag: '🇮🇳',
+    brandTagline: 'தோட்டத்திலிருந்து தட்டு வரை',
+    heroEyebrow: '100% நேரடி விவசாயி நெட்வொர்க்',
+    welcomeTitle: 'சுத்தமான தானியங்கள் மற்றும் உணவு,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">நேரடியாக உங்கள் வீட்டிற்கு.</em>',
+    welcomeSub: 'விவசாயிகளிடமிருந்து நேரடியாக தானியங்கள், அரிசி, காய்கறிகளை ஆர்டர் செய்யுங்கள். 15 நிமிடங்களில் அதிவேக டெலிவரி.',
+    btnHeroBuyer: 'வாங்க தொடங்கவும்',
+    btnHeroFarmer: '🧑‍🌾 விவசாயி போர்டல்',
+    directNote: '88% நேரடியாக விவசாயிக்கு',
+    directNoteSub: '0% இடைத்தரகர் கட்டணம்',
+    imp1: 'டன் வர்த்தகம்',
+    imp2: 'விவசாயிகள்',
+    imp3: 'மாநிலங்கள்',
+    imp4: 'மதிப்பீடு',
+    impMsg: 'ஒவ்வொரு ஆர்டரும் <strong>விவசாயிகளின் நல்வாழ்வுக்கு</strong> உதவுகிறது.',
+    langSelectHeading: 'மொழியைத் தேர்ந்தெடுக்கவும் (Select Language)',
+    whoAreYou: 'நீங்கள் Apna Anaj-ல் என்ன செய்ய விரும்புகிறீர்கள்?',
+    buyerTitle: 'நான் வாங்குபவர் (Buyer)',
+    buyerSub: '15 நிமிடங்களில் புதிய தானியங்கள் மற்றும் காய்கறிகளை வீட்டிலேயே பெறுங்கள்.',
+    btnBuyer: 'வாங்க தொடங்கவும்',
+    farmerTitle: 'நான் விவசாயி (Farmer)',
+    farmerSub: 'இடைத்தரகர்கள் இல்லாமல் உங்கள் பயிர்களை நேரடியாக விற்கவும்.',
+    btnFarmer: 'விவசாயி போர்ட்டலைத் திறக்கவும்',
+    haveAccount: 'ஏற்கனவே கணக்கு உள்ளதா?',
+    loginLink: 'இங்கே உள்நுழையவும்',
+    mandiTickerTitle: 'சந்தை நேரடி விலை',
+    howItWorksEyebrow: 'எளிய & வெளிப்படையான',
+    howItWorksHeading: 'தோட்டத்திலிருந்து <em class="text-[#276b45] dark:text-[#4ade80] not-italic">உங்கள் சமையலறை வரை.</em>',
+    howItWorksSub: 'உழைக்கும் விவசாயிகளுக்கு நியாயமான வருமானம்.',
+    step1Title: 'பயிரைத் தேர்வு செய்க',
+    step1Desc: 'புதிய அரிசி, பருப்பு மற்றும் காய்கறிகள்.',
+    step2Title: 'விவசாயி தகவல்',
+    step2Desc: 'கமிஷன் இன்றி நியாயமான விலையில் வாங்கவும்.',
+    step3Title: '15 நிமிட டெலிவரி',
+    step3Desc: 'காலை அறுவடை நேரடியாக உங்கள் வாசலில்.',
+    rewardsHeading: 'சுத்தமான உணவுடன் <em class="text-[#f8ce58] not-italic">பெரும் சேமிப்பு.</em>',
+    rewardsSub: 'முதல் ஆர்டரில் 15% தள்ளுபடி பெறுங்கள்.',
+    copyCouponBtn: 'கூப்பன் நகலெடு',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: 'முதல் ஆர்டரில் 15% தள்ளுபடி',
+    storiesHeading: 'விவசாயிகளின் <em class="text-[#276b45] dark:text-[#4ade80] not-italic">உண்மையான நம்பிக்கை.</em>',
+    storiesSub: 'Apna Anaj மூலம் ஆயிரக்கணக்கான விவசாயிகள் பயன்பெறுகின்றனர்.',
+    footerTagline: 'சுத்தமான தானியம். நியாயமான விலை. விவசாயி உயர்வு.',
+    footerCopyright: '© 2026 Apna Anaj Inc. விவசாயிகளுக்காக.'
+  },
+  kn: {
+    name: 'Kannada',
+    nativeName: 'ಕನ್ನಡ',
+    flag: '🇮🇳',
+    brandTagline: 'ಹೊಲದಿಂದ ನೇರವಾಗಿ ನಿಮ್ಮ ಮನೆಗೆ',
+    heroEyebrow: '100% ನೇರ ರೈತ ಜಾಲ',
+    welcomeTitle: 'ಶುದ್ಧ ಧಾನ್ಯ ಮತ್ತು ತಾಜಾ ಆಹಾರ,<br><em class="text-[#276b45] dark:text-[#4ade80] not-italic">ನೇರವಾಗಿ ನಿಮ್ಮ ಮನೆಗೆ.</em>',
+    welcomeSub: 'ಸ್ಥಳೀಯ ರೈತರಿಂದ ನೇರವಾಗಿ ತಾಜಾ ಧಾನ್ಯಗಳು, ಬೇಳೆಕಾಳು ಮತ್ತು ತರಕಾರಿಗಳನ್ನು 15 ನಿಮಿಷಗಳಲ್ಲಿ ಮನೆಬಾಗಿಲಿಗೆ ತರಿಸಿಕೊಳ್ಳಿ.',
+    btnHeroBuyer: 'ಶಾಪಿಂಗ್ ಪ್ರಾರಂಭಿಸಿ',
+    btnHeroFarmer: '🧑‍🌾 ರೈತ ಪೋರ್ಟಲ್',
+    directNote: '88% ನೇರವಾಗಿ ರೈತರಿಗೆ',
+    directNoteSub: '0% ದಲ್ಲಾಳಿ ಶುಲ್ಕ',
+    imp1: 'ಟನ್ ವ್ಯಾಪಾರ',
+    imp2: 'ನೋಂದಾಯಿತ ರೈತರು',
+    imp3: 'ರಾಜ್ಯಗಳು',
+    imp4: 'ರೇಟಿಂಗ್',
+    impMsg: 'ಪ್ರತಿ ಆರ್ಡರ್ <strong>ರೈತರ ಬದುಕಿಗೆ</strong> ನೇರ ಬೆಂಬಲ ನೀಡುತ್ತದೆ.',
+    langSelectHeading: 'ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ (Select Language)',
+    whoAreYou: 'ನೀವು Apna Anaj ನಲ್ಲಿ ಏನು ಮಾಡಲು ಬಯಸುತ್ತೀರಿ?',
+    buyerTitle: 'ನಾನು ಖರೀದಿದಾರ (Buyer)',
+    buyerSub: '15 ನಿಮಿಷಗಳಲ್ಲಿ ತಾಜಾ ಧಾನ್ಯಗಳು ಮತ್ತು ತರಕಾರಿಗಳನ್ನು ಮನೆಗೆ ಪಡೆಯಿರಿ.',
+    btnBuyer: 'ಶಾಪಿಂಗ್ ಪ್ರಾರಂಭಿಸಿ',
+    farmerTitle: 'ನಾನು ರೈತ (Farmer)',
+    farmerSub: 'ದಲ್ಲಾಳಿಗಳಿಲ್ಲದೆ ನಿಮ್ಮ ಬೆಳೆಯನ್ನು ನೇರವಾಗಿ ಮಾರಿ ಲಾಭ ಗಳಿಸಿ.',
+    btnFarmer: 'ರೈತ ಪೋರ್ಟಲ್ ತೆರೆಯಿರಿ',
+    haveAccount: 'ಈಗಾಗಲೇ ಖಾತೆ ಇದೆಯೇ?',
+    loginLink: 'ಇಲ್ಲಿ ಲಾಗಿನ್ ಮಾಡಿ',
+    mandiTickerTitle: 'ಮಾರುಕಟ್ಟೆ ನೇರ ದರಗಳು',
+    howItWorksEyebrow: 'ಸರಳ ಮತ್ತು ಪಾರದರ್ಶಕ',
+    howItWorksHeading: 'ಹೊಲದಿಂದ <em class="text-[#276b45] dark:text-[#4ade80] not-italic">ನಿಮ್ಮ ಮನೆಗೆ.</em>',
+    howItWorksSub: 'ರೈತರ ಶ್ರಮಕ್ಕೆ ನ್ಯಾಯಯುತ ಬೆಲೆ.',
+    step1Title: 'ಬೆಳೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
+    step1Desc: 'ತಾಜಾ ಗೋಧಿ, ಅಕ್ಕಿ ಮತ್ತು ತರಕಾರಿಗಳನ್ನು ನೋಡಿ.',
+    step2Title: 'ರೈತರ ವಿವರಗಳು',
+    step2Desc: 'ಕಮಿಷನ್ ಇಲ್ಲದೆ ಪಾರದರ್ಶಕ ದರದಲ್ಲಿ ಖರೀದಿಸಿ.',
+    step3Title: '15 ನಿಮಿಷಗಳ ಡೆಲಿವರಿ',
+    step3Desc: 'ಬೆಳಗಿನ ತಾಜಾ ಕೊಯ್ಲು ನಿಮ್ಮ ಬಾಗಿಲಿಗೆ.',
+    rewardsHeading: 'ಶುದ್ಧ ಆಹಾರದ ಜೊತೆಗೆ <em class="text-[#f8ce58] not-italic">ಉತ್ತಮ ಉಳಿತಾಯ.</em>',
+    rewardsSub: 'ಮೊದಲ ಆರ್ಡರ್‌ನಲ್ಲಿ 15% ರಿಯಾಯಿತಿ ಪಡೆಯಿರಿ.',
+    copyCouponBtn: 'ಕೋಡ್ ಕಾಪಿ ಮಾಡಿ',
+    couponCodeText: 'APNAANAJ15',
+    couponDesc: 'ಮೊದಲ ಆರ್ಡರ್‌ನಲ್ಲಿ 15% ರಿಯಾಯಿತಿ',
+    storiesHeading: 'ರೈತರ <em class="text-[#276b45] dark:text-[#4ade80] not-italic">ನಿಜವಾದ ನಂಬಿಕೆ.</em>',
+    storiesSub: 'Apna Anaj ಮೂಲಕ ಸಾವಿರಾರು ರೈತರು ಮತ್ತು ಕುಟುಂಬಗಳು ಸಂತೋಷವಾಗಿವೆ.',
+    footerTagline: 'ಶುದ್ಧ ಧಾನ್ಯ. ನ್ಯಾಯಯುತ ಬೆಲೆ. ರೈತರ ಉನ್ನತಿ.',
+    footerCopyright: '© 2026 Apna Anaj Inc. ರೈತರಿಗಾಗಿ ಸಮರ್ಪಿತ.'
+  }
+};
+
+
+
+================================================================================
+FILE: src/components/Header.tsx
+================================================================================
+
+import React from 'react';
+import { Wheat, Sprout, Heart, ShoppingBasket, Moon, Sun, LogOut, ArrowUpRight, Globe } from 'lucide-react';
+import { UserRole, LanguageCode } from '../types';
+import { translations } from '../data/translations';
+
+interface HeaderProps {
+  currentLang: LanguageCode;
+  onLanguageChange: (lang: LanguageCode) => void;
+  currentUser: {
+    role: UserRole;
+    name: string;
+    farm?: string;
+    location?: string;
+    address?: string;
+  };
+  cartItemCount: number;
+  cartTotal: number;
+  favoriteCount: number;
+  isDarkMode: boolean;
+  onToggleTheme: () => void;
+  onOpenCart: () => void;
+  onOpenJoinModal: (role?: 'buyer' | 'farmer') => void;
+  onOpenFavorites: () => void;
+  onLogout: () => void;
+  onNavigateHome: () => void;
+  onNavigateTab: (tabId: string) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({
+  currentLang,
+  onLanguageChange,
+  currentUser,
+  cartItemCount,
+  cartTotal,
+  favoriteCount,
+  isDarkMode,
+  onToggleTheme,
+  onOpenCart,
+  onOpenJoinModal,
+  onOpenFavorites,
+  onLogout,
+  onNavigateHome,
+  onNavigateTab
+}) => {
+  const currentLangObj = translations[currentLang] || translations.en;
+
+  return (
+    <header className="sticky top-0 z-40 bg-[#fbf8ef]/95 dark:bg-[#0e1a14]/95 backdrop-blur-md border-b border-[#e5dec9] dark:border-[#223f30] px-4 md:px-8 py-3 transition-colors duration-200">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        
+        {/* Brand Logo & Name */}
+        <div className="flex items-center gap-6">
+          <div 
+            onClick={onNavigateHome}
+            className="flex items-center gap-2.5 cursor-pointer group select-none"
+            role="button"
+            tabIndex={0}
+          >
+            <div className="w-9 h-9 rounded-xl bg-[#1e5634] text-white flex items-center justify-center shadow-md shadow-[#1e5634]/20 group-hover:scale-105 transition-all">
+              <Wheat className="w-5 h-5 text-[#f7c244]" />
+            </div>
+            <div className="flex items-center">
+              <span className="font-heading font-bold text-xl md:text-2xl text-[#1f3427] dark:text-[#f4f8f5] leading-none tracking-tight">
+                Apna<span className="text-[#1e5634] dark:text-[#4ade80]">Anaj</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Quick Nav Links (Desktop) */}
+          <nav className="hidden lg:flex items-center gap-5 ml-2 text-sm font-semibold text-[#5e7164] dark:text-[#9ab0a2]">
+            <button 
+              onClick={() => onNavigateTab('view-buyer-store')}
+              className="hover:text-[#1e5634] dark:hover:text-[#4ade80] transition-colors cursor-pointer"
+            >
+              Marketplace
+            </button>
+            <button 
+              onClick={() => onNavigateTab('view-welcome')}
+              className="hover:text-[#1e5634] dark:hover:text-[#4ade80] transition-colors cursor-pointer"
+            >
+              How it works
+            </button>
+            <button 
+              onClick={() => onNavigateTab('view-welcome')}
+              className="hover:text-[#1e5634] dark:hover:text-[#4ade80] transition-colors cursor-pointer"
+            >
+              Stories & Impact
+            </button>
+          </nav>
+        </div>
+
+        {/* Actions & Role State */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          
+          {/* User Role Pill */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#e4f1cd] dark:bg-[#163824] border border-[#d2e5b3] dark:border-[#223f30] text-[#1e5634] dark:text-[#4ade80]">
+            <span className="text-xs">🌐 {currentLangObj.name}</span>
+            <span className="text-xs opacity-50">•</span>
+            <span className="text-xs font-bold flex items-center gap-1">
+              <span>{currentUser.role === 'farmer' ? '🧑‍🌾' : currentUser.role === 'buyer' ? '🛒' : '👤'}</span>
+              <span className="truncate max-w-[110px]">
+                {currentUser.role === 'guest' ? 'Guest' : currentUser.name}
+              </span>
+            </span>
+          </div>
+
+          {/* Language Selector Dropdown */}
+          <div className="relative inline-flex items-center">
+            <Globe className="w-3.5 h-3.5 absolute left-2.5 text-[#5e7164] dark:text-[#9ab0a2] pointer-events-none" />
+            <select
+              value={currentLang}
+              onChange={(e) => onLanguageChange(e.target.value as LanguageCode)}
+              className="bg-white dark:bg-[#15271e] text-[#1f3427] dark:text-[#f4f8f5] border border-[#e5dec9] dark:border-[#223f30] text-xs font-semibold rounded-lg pl-7 pr-3 py-1.5 cursor-pointer hover:border-[#1e5634] focus:outline-none transition-colors"
+            >
+              {Object.keys(translations).map((key) => {
+                const lang = translations[key as LanguageCode];
+                return (
+                  <option key={key} value={key}>
+                    {lang.flag} {lang.nativeName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Favorites / Wishlist */}
+          <button
+            onClick={onOpenFavorites}
+            className="relative p-2 rounded-lg border border-[#e5dec9] dark:border-[#223f30] bg-white dark:bg-[#15271e] text-[#1f3427] dark:text-[#f4f8f5] hover:text-[#f28b47] hover:border-[#f28b47] transition-all cursor-pointer"
+            title="Saved Crops & Harvests"
+            aria-label="Saved crops"
+          >
+            <Heart className={`w-4 h-4 ${favoriteCount > 0 ? 'fill-[#f28b47] text-[#f28b47]' : ''}`} />
+            {favoriteCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-[#f28b47] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                {favoriteCount}
+              </span>
+            )}
+          </button>
+
+          {/* Cart Basket */}
+          <button
+            onClick={onOpenCart}
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#1e5634] hover:bg-[#164327] text-white text-xs sm:text-sm font-bold shadow-md shadow-[#1e5634]/20 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+            title="View Basket"
+          >
+            <ShoppingBasket className="w-4 h-4" />
+            <span className="font-semibold">{cartItemCount} Items</span>
+            <span className="text-white/60">•</span>
+            <span>₹{cartTotal}</span>
+          </button>
+
+          {/* Join / Role Trigger */}
+          {currentUser.role === 'guest' ? (
+            <button
+              onClick={() => onOpenJoinModal('buyer')}
+              className="hidden sm:inline-flex items-center gap-1 px-3.5 py-1.5 rounded-lg bg-[#1f3427] hover:bg-[#1f3427]/90 text-white text-xs font-bold transition-all cursor-pointer"
+            >
+              Join <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={onLogout}
+              className="p-1.5 rounded-lg border border-[#e5dec9] dark:border-[#223f30] bg-white dark:bg-[#15271e] text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-bold transition-all cursor-pointer"
+              title="Log out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Dark / Light Toggle */}
+          <button
+            onClick={onToggleTheme}
+            className="p-2 rounded-lg border border-[#e5dec9] dark:border-[#223f30] bg-white dark:bg-[#15271e] text-[#1f3427] dark:text-[#f4f8f5] hover:bg-[#e4f1cd] dark:hover:bg-[#163824] transition-all cursor-pointer"
+            title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle theme"
+          >
+            {isDarkMode ? <Sun className="w-4 h-4 text-[#f7c244]" /> : <Moon className="w-4 h-4" />}
+          </button>
+
+        </div>
+
+      </div>
+    </header>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/Sidebar.tsx
+================================================================================
+
+import React from 'react';
+import { 
+  Compass, 
+  Store, 
+  KeyRound, 
+  LayoutDashboard, 
+  Sprout, 
+  TrendingUp, 
+  Lightbulb, 
+  Handshake, 
+  Boxes, 
+  Truck, 
+  Scale, 
+  PackageOpen, 
+  Zap, 
+  Bike, 
+  History 
+} from 'lucide-react';
+import { UserRole } from '../types';
+
+interface SidebarProps {
+  currentTab: string;
+  onTabChange: (tabId: string) => void;
+  currentUser: {
+    role: UserRole;
+    name: string;
+  };
+}
+
+export const Sidebar: React.FC<SidebarProps> = ({
+  currentTab,
+  onTabChange,
+  currentUser
+}) => {
+  return (
+    <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#fbf8ef] dark:bg-[#15271e] border-r border-[#e5dec9] dark:border-[#223f30] p-4 sticky top-[61px] h-[calc(100vh-61px)] overflow-y-auto z-30 transition-colors">
+      
+      {/* Guest Mode Navigation */}
+      {currentUser.role === 'guest' && (
+        <div className="space-y-1">
+          <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#7a887e] dark:text-[#9ab0a2] px-3 py-2">
+            Start Journey
+          </div>
+          
+          <button
+            onClick={() => onTabChange('view-welcome')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-welcome'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Compass className="w-4 h-4 text-[#1e5634]" />
+            <span>1. Welcome & Role</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-buyer-store')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-buyer-store'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Store className="w-4 h-4 text-[#1e5634]" />
+            <span>2. Fresh Anaj Store</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-auth')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-auth'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <KeyRound className="w-4 h-4 text-[#1e5634]" />
+            <span>3. Existing Login</span>
+          </button>
+        </div>
+      )}
+
+      {/* Farmer Portal Navigation */}
+      {currentUser.role === 'farmer' && (
+        <div className="space-y-1">
+          <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#1e5634] dark:text-[#4ade80] px-3 py-2 flex items-center gap-1.5">
+            <span>🧑‍🌾 Farmer Portal</span>
+          </div>
+
+          <button
+            onClick={() => onTabChange('view-farmer-dash')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-farmer-dash'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4 text-[#1e5634]" />
+            <span>1. Dashboard</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-add-produce')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-add-produce'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Sprout className="w-4 h-4 text-[#1e5634]" />
+            <span>2. Add Harvest / Anaj</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-demand-forecast')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-demand-forecast'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4 text-[#1e5634]" />
+            <span>3. AI Demand Forecast</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-selling-rec')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-selling-rec'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Lightbulb className="w-4 h-4 text-[#1e5634]" />
+            <span>4. Selling Rec</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-matching')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-matching'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Handshake className="w-4 h-4 text-[#1e5634]" />
+            <span>5. Buyer Matching</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-pooling')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-pooling'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Boxes className="w-4 h-4 text-[#1e5634]" />
+            <span>6. Quantity Pooling</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-route')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-route'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Truck className="w-4 h-4 text-[#1e5634]" />
+            <span>7. EV Pickup Route</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-transparency')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-transparency'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Scale className="w-4 h-4 text-[#1e5634]" />
+            <span>8. Price Transparency</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-orders')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-orders'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <PackageOpen className="w-4 h-4 text-[#1e5634]" />
+            <span>9. Dispatched Batches</span>
+          </button>
+        </div>
+      )}
+
+      {/* Buyer Mode Navigation */}
+      {currentUser.role === 'buyer' && (
+        <div className="space-y-1">
+          <div className="text-[11px] font-extrabold uppercase tracking-wider text-[#1e5634] dark:text-[#4ade80] px-3 py-2 flex items-center gap-1.5">
+            <span>🛒 Fresh Store</span>
+          </div>
+
+          <button
+            onClick={() => onTabChange('view-buyer-store')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-buyer-store'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Zap className="w-4 h-4 text-[#f28b47]" />
+            <span>1. Fresh Farm Store</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-buyer-tracking')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-buyer-tracking'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <Bike className="w-4 h-4 text-[#1e5634]" />
+            <span>2. Live 15-Min Tracking</span>
+          </button>
+
+          <button
+            onClick={() => onTabChange('view-orders')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+              currentTab === 'view-orders'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
+                : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'
+            }`}
+          >
+            <History className="w-4 h-4 text-[#1e5634]" />
+            <span>3. Order History & Impact</span>
+          </button>
+        </div>
+      )}
+
+      {/* Footer Info in Sidebar */}
+      <div className="mt-auto pt-4 border-t border-[#e5dec9] dark:border-[#223f30] text-[11px] text-[#5e7164] dark:text-[#9ab0a2]">
+        <div className="flex items-center gap-1.5 font-bold text-[#1e5634] dark:text-[#4ade80]">
+          <span>🌾 Apna Anaj</span>
+        </div>
+        <p className="text-[10px] mt-1 text-[#5e7164]/80">
+          Zero middleman fees • 88% farmer payout guarantee
+        </p>
+      </div>
+
+    </aside>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/MandiTicker.tsx
+================================================================================
+
+import React from 'react';
+import { mandiRates } from '../data/mockData';
+import { TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
+
+export const MandiTicker: React.FC = () => {
+  return (
+    <div className="bg-[#1e5634] dark:bg-[#12281c] text-white text-xs font-semibold py-2 overflow-hidden border-b border-[#164327] dark:border-[#223f30] select-none z-30 relative transition-colors">
+      <div className="animate-marquee flex items-center gap-8">
+        {mandiRates.concat(mandiRates).map((rate, idx) => (
+          <div key={`${rate.id}-${idx}`} className="inline-flex items-center gap-2 font-medium">
+            <span className="text-[#f7c244] font-bold">🌾 {rate.mandi}:</span>
+            <span>{rate.commodity}</span>
+            <span className="text-white/80">Mandi ₹{rate.price}/{rate.unit.replace('₹/', '')}</span>
+            <span className={`inline-flex items-center gap-0.5 text-xs font-bold ${rate.isUp ? 'text-[#d9efb7]' : 'text-red-300'}`}>
+              {rate.isUp ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              {rate.isUp ? '+' : ''}{rate.change}%
+            </span>
+            <span className="bg-white/20 text-[#d9efb7] px-1.5 py-0.5 rounded text-[11px] font-bold">
+              Apna Anaj: ₹{rate.apnaAnajPrice}
+            </span>
+            <span className="text-white/40">|</span>
+          </div>
+        ))}
+        <div className="inline-flex items-center gap-1 text-[#f7c244] font-bold">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Apna Anaj: 88% Direct Payout to Farmers • 0% Middleman Fees!</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+
+================================================================================
+FILE: src/components/WelcomeView.tsx
+================================================================================
+
+import React from 'react';
+import { 
+  ArrowRight, 
+  Wheat, 
+  ShoppingBag, 
+  MapPin, 
+  Handshake, 
+  Sprout, 
+  ShieldCheck, 
+  Gift, 
+  Copy, 
+  Check, 
+  Star, 
+  HeartHandshake,
+  TrendingUp,
+  Sparkles
+} from 'lucide-react';
+import { LanguageCode } from '../types';
+import { translations } from '../data/translations';
+import { testimonials } from '../data/mockData';
+
+interface WelcomeViewProps {
+  currentLang: LanguageCode;
+  onLanguageChange: (lang: LanguageCode) => void;
+  onSelectRole: (role: 'buyer' | 'farmer') => void;
+  onNavigateTab: (tabId: string) => void;
+  onCopyCoupon: (code: string) => void;
+}
+
+export const WelcomeView: React.FC<WelcomeViewProps> = ({
+  currentLang,
+  onLanguageChange,
+  onSelectRole,
+  onNavigateTab,
+  onCopyCoupon
+}) => {
+  const t = translations[currentLang] || translations.en;
+  const [copied, setCopied] = React.useState(false);
+
+  const handleCopy = () => {
+    onCopyCoupon(t.couponCodeText);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  return (
+    <div className="space-y-8 animate-fadeIn">
+      
+      {/* Hero Banner with KrishiDirect theme */}
+      <div className="relative overflow-hidden rounded-3xl bg-[#1e5634] text-white p-6 sm:p-10 lg:p-12 shadow-xl shadow-[#1e5634]/15">
+        <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#d9efb7]/15 pointer-events-none blur-2xl" />
+        <div className="absolute -bottom-24 -left-24 w-80 h-80 rounded-full bg-[#f7c244]/10 pointer-events-none blur-xl" />
+
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          
+          {/* Left Text Column */}
+          <div className="lg:col-span-7 space-y-5">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-[#f7c244] text-xs font-extrabold uppercase tracking-widest">
+              <span className="w-2 h-2 rounded-full bg-[#f28b47] animate-pulse" />
+              <span>{t.heroEyebrow}</span>
+            </div>
+
+            <h1 
+              className="font-heading text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white leading-[1.1]"
+              dangerouslySetInnerHTML={{ __html: t.welcomeTitle }}
+            />
+
+            <p className="text-sm sm:text-base text-white/90 leading-relaxed max-w-xl">
+              {t.welcomeSub}
+            </p>
+
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <button
+                onClick={() => onSelectRole('buyer')}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#f7c244] hover:bg-[#e6b338] text-[#1f3427] font-bold text-sm shadow-lg shadow-black/10 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+              >
+                <span>{t.btnHeroBuyer}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => onSelectRole('farmer')}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-black/20 hover:bg-black/30 border border-white/25 text-white font-bold text-sm backdrop-blur-sm hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+              >
+                <span>{t.btnHeroFarmer}</span>
+              </button>
+            </div>
+
+            {/* Trust Avatar Stack */}
+            <div className="flex items-center gap-3 pt-2 text-xs text-white/80">
+              <div className="flex -space-x-2">
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#d4936f] text-white font-bold text-[10px] border-2 border-[#1e5634]">BP</span>
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#507d60] text-white font-bold text-[10px] border-2 border-[#1e5634]">RK</span>
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#c1a273] text-white font-bold text-[10px] border-2 border-[#1e5634]">AK</span>
+                <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-[#1f3427] text-[#f7c244] font-bold text-[10px] border-2 border-[#1e5634]">+8k</span>
+              </div>
+              <p>
+                <strong className="text-white">8,400+</strong> families getting fresh pure harvest daily
+              </p>
+            </div>
+          </div>
+
+          {/* Right Visual Photo Card */}
+          <div className="lg:col-span-5 flex justify-center">
+            <div className="relative w-full max-w-[340px] aspect-square rounded-[2rem] overflow-hidden border-4 border-white/20 shadow-2xl bg-gradient-to-tr from-[#163824] to-[#1e5634]">
+              <img 
+                src="https://images.unsplash.com/photo-1500937386664-56d1dfef3854?auto=format&fit=crop&w=700&q=80" 
+                alt="Indian Farmer in lush wheat and grain fields"
+                className="w-full h-full object-cover mix-blend-luminosity hover:mix-blend-normal transition-all duration-500 scale-105 hover:scale-100"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#163824] via-transparent to-transparent opacity-80" />
+              
+              {/* Badge top */}
+              <div className="absolute top-4 right-4 px-3.5 py-2 rounded-xl bg-white/95 text-[#1f3427] text-xs font-bold shadow-lg flex items-center gap-2">
+                <div className="w-5 h-5 rounded-full bg-[#e4f1cd] text-[#1e5634] flex items-center justify-center">
+                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                </div>
+                <div>
+                  <div className="text-xs font-extrabold text-[#1f3427]">88% सीधा किसान को</div>
+                  <div className="text-[10px] text-[#5e7164] font-medium">शून्य बिचौलिया शुल्क</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Impact Statistics Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4 sm:p-6 rounded-2xl bg-[#e4f1cd] dark:bg-[#163824] border border-[#bed99f] dark:border-[#223f30]">
+        <div className="p-2 sm:p-3">
+          <div className="font-heading font-bold text-2xl sm:text-3xl text-[#1e5634] dark:text-[#4ade80]">15,000+</div>
+          <div className="text-xs font-bold text-[#5e7164] dark:text-[#9ab0a2] mt-0.5">जुड़े किसान</div>
+        </div>
+
+        <div className="p-2 sm:p-3">
+          <div className="font-heading font-bold text-2xl sm:text-3xl text-[#1e5634] dark:text-[#4ade80]">15 Mins</div>
+          <div className="text-xs font-bold text-[#5e7164] dark:text-[#9ab0a2] mt-0.5">एक्सप्रेस डिलीवरी</div>
+        </div>
+
+        <div className="p-2 sm:p-3">
+          <div className="font-heading font-bold text-2xl sm:text-3xl text-[#1e5634] dark:text-[#4ade80]">₹0</div>
+          <div className="text-xs font-bold text-[#5e7164] dark:text-[#9ab0a2] mt-0.5">कमीशन व शुल्क</div>
+        </div>
+
+        <div className="col-span-2 md:col-span-1 lg:col-span-2 p-2 sm:p-3 flex items-center gap-3">
+          <span className="text-2xl">🧡</span>
+          <div className="text-xs font-bold text-[#1f3427] dark:text-[#f4f8f5] leading-snug">
+            प्योर देसी गारंटी: आज सुबह की खेत से ताज़ा तुड़ाई सीधे आपके किचन तक ।
+          </div>
+        </div>
+      </div>
+
+      {/* Role Selection & Language Panel */}
+      <div className="bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30] rounded-3xl p-6 sm:p-8 shadow-sm">
+        
+        {/* Language Selection Chips */}
+        <div className="bg-[#e4f1cd] dark:bg-[#163824]/60 border border-[#bed99f] dark:border-[#223f30] rounded-2xl p-4 sm:p-5 mb-8 text-center">
+          <span className="text-[11px] font-extrabold uppercase text-[#1e5634] dark:text-[#4ade80] tracking-wider block mb-3">
+            SELECT LANGUAGE (अपनी भाषा चुनें)
+          </span>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {Object.keys(translations).map((langKey) => {
+              const item = translations[langKey as LanguageCode];
+              const isSelected = currentLang === langKey;
+              return (
+                <button
+                  key={langKey}
+                  onClick={() => onLanguageChange(langKey as LanguageCode)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#1e5634] text-white shadow-sm scale-105'
+                      : 'bg-white dark:bg-[#15271e] text-[#1f3427] dark:text-[#f4f8f5] border border-[#bed99f] dark:border-[#223f30] hover:border-[#1e5634] hover:text-[#1e5634]'
+                  }`}
+                >
+                  {item.flag} {item.nativeName}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Role Options Heading */}
+        <h2 className="font-heading text-xl sm:text-2xl font-bold text-center text-[#1f3427] dark:text-[#f4f8f5] mb-6">
+          What is your role on Apna Anaj?
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+          
+          {/* Buyer Choice Card */}
+          <div 
+            onClick={() => onSelectRole('buyer')}
+            className="p-6 sm:p-8 rounded-2xl border-2 border-[#bed99f] dark:border-[#223f30] bg-[#e4f1cd] dark:bg-[#163824]/40 hover:scale-[1.01] transition-all duration-200 cursor-pointer flex flex-col justify-between text-center group"
+          >
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3 text-4xl group-hover:scale-110 transition-transform">
+                🛒
+              </div>
+              <h3 className="font-heading text-xl font-bold text-[#1f3427] dark:text-[#f4f8f5]">
+                {t.buyerTitle}
+              </h3>
+              <p className="text-xs sm:text-sm text-[#5e7164] dark:text-[#9ab0a2] mt-2 leading-relaxed max-w-xs">
+                {t.buyerSub}
+              </p>
+            </div>
+
+            <button className="mt-6 flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#1e5634] hover:bg-[#164327] text-white text-sm font-bold shadow-md shadow-[#1e5634]/20 group-hover:translate-x-0.5 transition-all cursor-pointer">
+              <span>{t.btnBuyer}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Farmer Choice Card */}
+          <div 
+            onClick={() => onSelectRole('farmer')}
+            className="p-6 sm:p-8 rounded-2xl border-2 border-[#e5dec9] dark:border-[#223f30] bg-white dark:bg-[#0e1a14] hover:border-[#1e5634] transition-all duration-200 cursor-pointer flex flex-col justify-between text-center group"
+          >
+            <div className="flex flex-col items-center">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3 text-3xl group-hover:scale-110 transition-transform">
+                <span>🧑‍🌾</span><span className="text-2xl ml-1">🌾</span>
+              </div>
+              <h3 className="font-heading text-xl font-bold text-[#1f3427] dark:text-[#f4f8f5]">
+                {t.farmerTitle}
+              </h3>
+              <p className="text-xs sm:text-sm text-[#5e7164] dark:text-[#9ab0a2] mt-2 leading-relaxed max-w-xs">
+                {t.farmerSub}
+              </p>
+            </div>
+
+            <button className="mt-6 flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-white dark:bg-[#15271e] hover:bg-[#1e5634] hover:text-white border-2 border-[#1e5634] text-[#1e5634] dark:text-[#4ade80] text-sm font-bold shadow-sm transition-all cursor-pointer">
+              <span>{t.btnFarmer}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
+        </div>
+
+        <div className="mt-6 text-center text-xs text-[#5e7164] dark:text-[#9ab0a2]">
+          <span>{t.haveAccount}</span>{' '}
+          <button 
+            onClick={() => onNavigateTab('view-auth')}
+            className="text-[#1e5634] dark:text-[#4ade80] font-bold hover:underline cursor-pointer"
+          >
+            {t.loginLink}
+          </button>
+        </div>
+
+      </div>
+
+      {/* How It Works Process */}
+      <div className="bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30] rounded-3xl p-6 sm:p-10 shadow-sm">
+        <div className="text-center max-w-xl mx-auto mb-10">
+          <p className="text-[11px] font-extrabold uppercase text-[#1e5634] dark:text-[#4ade80] tracking-widest mb-1">
+            {t.howItWorksEyebrow}
+          </p>
+          <h2 
+            className="font-heading text-2xl sm:text-3xl font-bold text-[#1f3427] dark:text-[#f4f8f5]"
+            dangerouslySetInnerHTML={{ __html: t.howItWorksHeading }}
+          />
+          <p className="text-xs sm:text-sm text-[#5e7164] dark:text-[#9ab0a2] mt-2">
+            {t.howItWorksSub}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          <div className="relative p-6 rounded-2xl bg-[#fbf8ef] dark:bg-[#0e1a14] border border-[#e5dec9] dark:border-[#223f30]">
+            <span className="font-heading font-bold text-2xl text-[#1e5634] dark:text-[#4ade80] block mb-3">01</span>
+            <div className="w-10 h-10 rounded-xl bg-[#e4f1cd] dark:bg-[#163824] text-[#f28b47] flex items-center justify-center mb-4">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-[#1f3427] dark:text-[#f4f8f5] mb-2">{t.step1Title}</h3>
+            <p className="text-xs sm:text-sm text-[#5e7164] dark:text-[#9ab0a2] leading-relaxed">{t.step1Desc}</p>
+          </div>
+
+          <div className="relative p-6 rounded-2xl bg-[#fbf8ef] dark:bg-[#0e1a14] border border-[#e5dec9] dark:border-[#223f30]">
+            <span className="font-heading font-bold text-2xl text-[#1e5634] dark:text-[#4ade80] block mb-3">02</span>
+            <div className="w-10 h-10 rounded-xl bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] flex items-center justify-center mb-4">
+              <Handshake className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-[#1f3427] dark:text-[#f4f8f5] mb-2">{t.step2Title}</h3>
+            <p className="text-xs sm:text-sm text-[#5e7164] dark:text-[#9ab0a2] leading-relaxed">{t.step2Desc}</p>
+          </div>
+
+          <div className="relative p-6 rounded-2xl bg-[#fbf8ef] dark:bg-[#0e1a14] border border-[#e5dec9] dark:border-[#223f30]">
+            <span className="font-heading font-bold text-2xl text-[#1e5634] dark:text-[#4ade80] block mb-3">03</span>
+            <div className="w-10 h-10 rounded-xl bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] flex items-center justify-center mb-4">
+              <Sprout className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-base text-[#1f3427] dark:text-[#f4f8f5] mb-2">{t.step3Title}</h3>
+            <p className="text-xs sm:text-sm text-[#5e7164] dark:text-[#9ab0a2] leading-relaxed">{t.step3Desc}</p>
+          </div>
+
+        </div>
+      </div>
+
+      {/* Rewards / Voucher Section */}
+      <div className="rounded-3xl bg-[#1e5634] text-white p-6 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-8 shadow-xl shadow-[#1e5634]/15 relative overflow-hidden">
+        <div className="space-y-3 max-w-lg">
+          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#f7c244] uppercase tracking-wider">
+            <Gift className="w-4 h-4" />
+            <span>Welcome Offer for Families</span>
+          </div>
+
+          <h2 
+            className="font-heading text-2xl sm:text-3xl font-bold leading-tight"
+            dangerouslySetInnerHTML={{ __html: t.rewardsHeading }}
+          />
+
+          <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
+            {t.rewardsSub}
+          </p>
+
+          <button
+            onClick={handleCopy}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#f7c244] hover:bg-[#e6b338] text-[#1f3427] font-bold text-xs shadow-md transition-all cursor-pointer mt-2"
+          >
+            {copied ? <Check className="w-4 h-4 text-[#1e5634]" /> : <Copy className="w-4 h-4" />}
+            <span>{copied ? 'Copied code to checkout!' : t.copyCouponBtn}</span>
+          </button>
+        </div>
+
+        {/* Voucher Ticket Visual */}
+        <div className="relative w-64 p-6 rounded-2xl bg-[#f7c244] text-[#1f3427] shadow-2xl transform rotate-2 hover:rotate-0 transition-transform duration-300 border-2 border-dashed border-[#1e5634]/40 text-center shrink-0">
+          <div className="text-[10px] font-extrabold uppercase tracking-widest text-[#1f3427]/70">
+            APNA ANAJ FIRST HARVEST
+          </div>
+          <div className="font-heading text-2xl sm:text-3xl font-bold tracking-wider my-2 text-[#1f3427]">
+            {t.couponCodeText}
+          </div>
+          <div className="text-[11px] font-bold text-[#1f3427]/80">
+            {t.couponDesc}
+          </div>
+        </div>
+      </div>
+
+      {/* Community Stories & Testimonials */}
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-extrabold uppercase text-[#1e5634] dark:text-[#4ade80] tracking-widest mb-1">
+              Community Voices
+            </p>
+            <h2 
+              className="font-heading text-2xl sm:text-3xl font-bold text-[#1f3427] dark:text-[#f4f8f5]"
+              dangerouslySetInnerHTML={{ __html: t.storiesHeading }}
+            />
+          </div>
+          <p className="text-xs sm:text-sm text-[#5e7164] dark:text-[#9ab0a2] max-w-sm">
+            {t.storiesSub}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {testimonials.map((test) => (
+            <div 
+              key={test.id}
+              className="p-6 rounded-2xl bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30] shadow-sm flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center gap-1 text-[#f28b47] mb-3">
+                  {[...Array(test.rating)].map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-current" />
+                  ))}
+                </div>
+                <p className="font-heading text-sm text-[#1f3427] dark:text-[#f4f8f5] leading-relaxed italic mb-6">
+                  "{test.quote}"
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 pt-4 border-t border-[#e5dec9]/60 dark:border-[#223f30]">
+                <div className="w-10 h-10 rounded-full bg-[#1e5634] text-white flex items-center justify-center font-bold text-xs">
+                  {test.avatar}
+                </div>
+                <div>
+                  <div className="font-bold text-xs sm:text-sm text-[#1f3427] dark:text-[#f4f8f5]">{test.name}</div>
+                  <div className="text-[11px] text-[#5e7164] dark:text-[#9ab0a2]">{test.role}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="pt-8 pb-12 border-t border-[#e5dec9] dark:border-[#223f30] text-center text-xs text-[#5e7164] dark:text-[#9ab0a2] space-y-2">
+        <div className="flex items-center justify-center gap-2 font-heading font-bold text-lg text-[#1f3427] dark:text-[#f4f8f5]">
+          <Wheat className="w-5 h-5 text-[#1e5634]" />
+          <span>Apna<span className="text-[#1e5634] dark:text-[#4ade80]">Anaj</span></span>
+        </div>
+        <p>{t.footerTagline}</p>
+        <p className="text-[11px] text-[#5e7164]/70">{t.footerCopyright}</p>
+      </footer>
+
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/BuyerStore.tsx
+================================================================================
+
+import React, { useState, useMemo } from 'react';
+import { 
+  Search, 
+  Zap, 
+  MapPin, 
+  Heart, 
+  Plus, 
+  Minus, 
+  Wheat, 
+  Sparkles, 
+  Check, 
+  Star,
+  Clock
+} from 'lucide-react';
+import { ProductItem, ProductCategory, LanguageCode } from '../types';
+
+interface BuyerStoreProps {
+  products: ProductItem[];
+  cart: Record<string, { qty: number }>;
+  favorites: Set<string>;
+  buyerAddress: string;
+  onUpdateCart: (product: ProductItem, delta: number) => void;
+  onToggleFavorite: (product: ProductItem) => void;
+  onNavigateTab: (tabId: string) => void;
+}
+
+export const BuyerStore: React.FC<BuyerStoreProps> = ({
+  products,
+  cart,
+  favorites,
+  buyerAddress,
+  onUpdateCart,
+  onToggleFavorite,
+  onNavigateTab
+}) => {
+  const [selectedCat, setSelectedCat] = useState<ProductCategory>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((item) => {
+      const matchesCat = selectedCat === 'all' || item.category === selectedCat;
+      const q = searchQuery.toLowerCase().trim();
+      const matchesQuery = 
+        !q ||
+        item.name.toLowerCase().includes(q) ||
+        item.hindiName.toLowerCase().includes(q) ||
+        item.farm.toLowerCase().includes(q) ||
+        item.location.toLowerCase().includes(q) ||
+        item.searchKeywords.toLowerCase().includes(q);
+      return matchesCat && matchesQuery;
+    });
+  }, [products, selectedCat, searchQuery]);
+
+  const categories: { id: ProductCategory; label: string; icon: string }[] = [
+    { id: 'all', label: 'All Harvests', icon: '🌾' },
+    { id: 'grains', label: 'Grains & Anaj (अनाज)', icon: '🥖' },
+    { id: 'veggies', label: 'Fresh Vegetables', icon: '🥦' },
+    { id: 'leafy', label: 'Leafy Greens', icon: '🥬' },
+    { id: 'fruits', label: 'Farm Fruits', icon: '🍎' },
+    { id: 'dairy', label: 'Pure A2 Dairy', icon: '🥛' },
+    { id: 'spices', label: 'Fresh Spices', icon: '🧄' }
+  ];
+
+  return (
+    <div className="space-y-6">
+      
+      {/* 15-Min Express Delivery Banner */}
+      <div className="rounded-3xl bg-[#1e5634] text-white p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-lg shadow-[#1e5634]/15 relative overflow-hidden">
+        <div className="space-y-1.5 z-10">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f7c244] text-[#1f3427] text-xs font-black tracking-wider uppercase">
+            <Zap className="w-3.5 h-3.5 fill-current" />
+            <span>15 MIN EXPRESS FARM DELIVERY</span>
+          </div>
+          <h1 className="font-heading text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Apna Anaj • Pure Farm Harvests
+          </h1>
+          <p className="text-xs sm:text-sm text-white/90 flex items-center gap-1.5">
+            <MapPin className="w-3.5 h-3.5 text-[#f7c244]" />
+            <span>Delivering to: <strong className="text-[#f7c244]">{buyerAddress || 'Ghaziabad, Uttar Pradesh'}</strong></span>
+          </p>
+        </div>
+
+        <div className="z-10 p-3 sm:p-4 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 text-right shrink-0">
+          <div className="text-xs font-bold text-[#f7c244] uppercase tracking-wider">
+            88% DIRECT FARMER PAYOUT
+          </div>
+          <div className="text-[11px] text-white/90">
+            0% middleman cuts • Fair rural livelihood
+          </div>
+        </div>
+      </div>
+
+      {/* Live Search Box */}
+      <div className="relative">
+        <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-[#5e7164] dark:text-[#9ab0a2]" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search grains, crops, farmers (गेहूं, चावल, दाल, टमाटर, प्याज, आलू, पालक, बाजरा, चना...)"
+          className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30] text-sm text-[#1f3427] dark:text-[#f4f8f5] shadow-sm focus:outline-none focus:border-[#1e5634] transition-colors"
+        />
+        {searchQuery && (
+          <button 
+            onClick={() => setSearchQuery('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-[#5e7164] hover:text-[#1e5634] cursor-pointer"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Category Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        {categories.map((cat) => (
+          <button
+            key={cat.id}
+            onClick={() => setSelectedCat(cat.id)}
+            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+              selectedCat === cat.id
+                ? 'bg-[#1e5634] text-white shadow-sm scale-105'
+                : 'bg-white dark:bg-[#15271e] text-[#5e7164] dark:text-[#9ab0a2] border border-[#e5dec9] dark:border-[#223f30] hover:border-[#1e5634] hover:text-[#1e5634]'
+            }`}
+          >
+            <span>{cat.icon}</span>
+            <span>{cat.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Produce Grid */}
+      {filteredProducts.length === 0 ? (
+        <div className="text-center py-16 p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30]">
+          <Wheat className="w-12 h-12 text-[#5e7164] mx-auto mb-3 opacity-50" />
+          <h3 className="font-heading text-lg font-bold text-[#1f3427] dark:text-[#f4f8f5]">No crops match "{searchQuery}"</h3>
+          <p className="text-xs text-[#5e7164] dark:text-[#9ab0a2] mt-1">Try searching for Gehu, Rice, Chana, Bajra, Tomato or Palak</p>
+          <button
+            onClick={() => { setSearchQuery(''); setSelectedCat('all'); }}
+            className="mt-4 px-4 py-2 rounded-xl bg-[#1e5634] text-white text-xs font-bold cursor-pointer"
+          >
+            View All Farm Harvests
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {filteredProducts.map((prod) => {
+            const currentQty = cart[prod.id]?.qty || 0;
+            const isFav = favorites.has(prod.id);
+
+            return (
+              <div
+                key={prod.id}
+                className="group flex flex-col justify-between rounded-2xl bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30] hover:border-[#1e5634] hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden"
+              >
+                {/* Image Section */}
+                <div className="relative h-44 w-full bg-[#e4f1cd] dark:bg-[#163824] overflow-hidden">
+                  <img
+                    src={prod.image}
+                    alt={prod.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  
+                  {/* Farm Tag */}
+                  <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/65 backdrop-blur-md text-white text-[10px] font-extrabold flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-[#f7c244]" />
+                    <span>{prod.farm}</span>
+                  </div>
+
+                  {/* Favorite Heart Button */}
+                  <button
+                    type="button"
+                    onClick={() => onToggleFavorite(prod)}
+                    className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/90 dark:bg-[#15271e]/90 text-[#5e7164] hover:text-[#f28b47] hover:scale-110 transition-all flex items-center justify-center shadow-sm cursor-pointer"
+                    title="Save to favorites"
+                    aria-label="Save crop"
+                  >
+                    <Heart className={`w-4 h-4 ${isFav ? 'fill-[#f28b47] text-[#f28b47]' : ''}`} />
+                  </button>
+
+                  {/* Harvest timestamp */}
+                  <div className="absolute bottom-2 left-2.5 px-2 py-0.5 rounded bg-white/90 dark:bg-[#15271e]/90 text-[10px] font-bold text-[#1e5634] dark:text-[#4ade80] flex items-center gap-1">
+                    <Clock className="w-2.5 h-2.5" />
+                    <span>{prod.harvestTime}</span>
+                  </div>
+                </div>
+
+                {/* Details Section */}
+                <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                  <div>
+                    <h3 className="font-bold text-sm text-[#1f3427] dark:text-[#f4f8f5] leading-snug">
+                      {prod.name}
+                    </h3>
+                    <div className="text-[11px] font-semibold text-[#1e5634] dark:text-[#4ade80] mt-0.5">
+                      {prod.hindiName}
+                    </div>
+                    <div className="text-[11px] text-[#5e7164] dark:text-[#9ab0a2] mt-1">
+                      {prod.location} • {prod.unit}
+                    </div>
+
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {prod.tags.slice(0, 2).map((tag, idx) => (
+                        <span key={idx} className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80]">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Price & Action Row */}
+                  <div className="pt-2 border-t border-[#e5dec9]/60 dark:border-[#223f30] flex items-center justify-between">
+                    <div>
+                      <div className="font-heading font-bold text-lg text-[#1e5634] dark:text-[#4ade80] leading-none">
+                        ₹{prod.price}
+                        <span className="text-[11px] font-normal text-[#5e7164] dark:text-[#9ab0a2] line-through ml-1.5">
+                          ₹{prod.originalPrice}
+                        </span>
+                      </div>
+                      <div className="text-[9px] font-extrabold uppercase text-[#f28b47] tracking-wider mt-0.5">
+                        Farmer Gets: ₹{Math.round(prod.price * 0.88)}
+                      </div>
+                    </div>
+
+                    {/* Add / Qty Controls */}
+                    {currentQty === 0 ? (
+                      <button
+                        onClick={() => onUpdateCart(prod, 1)}
+                        className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg border-1.5 border-[#1e5634] bg-white dark:bg-[#15271e] text-[#1e5634] dark:text-[#4ade80] hover:bg-[#1e5634] hover:text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>ADD</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center bg-[#1e5634] text-white rounded-lg p-0.5 shadow-sm">
+                        <button
+                          onClick={() => onUpdateCart(prod, -1)}
+                          className="w-6 h-6 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="px-2 text-xs font-bold min-w-[20px] text-center">
+                          {currentQty}
+                        </span>
+                        <button
+                          onClick={() => onUpdateCart(prod, 1)}
+                          className="w-6 h-6 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/CartDrawer.tsx
+================================================================================
+
+import React, { useState } from 'react';
+import { X, Plus, Minus, Trash2, Zap, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
+import { ProductItem } from '../types';
+
+interface CartDrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  cart: Record<string, { product: ProductItem; qty: number }>;
+  onUpdateCart: (product: ProductItem, delta: number) => void;
+  onCheckout: (appliedDiscount: number) => void;
+}
+
+export const CartDrawer: React.FC<CartDrawerProps> = ({
+  isOpen,
+  onClose,
+  cart,
+  onUpdateCart,
+  onCheckout
+}) => {
+  const [coupon, setCoupon] = useState('');
+  const [discountPercent, setDiscountPercent] = useState(0);
+  const [couponError, setCouponError] = useState('');
+  const [couponSuccess, setCouponSuccess] = useState('');
+
+  const cartEntries = (Object.values(cart) as Array<{ product: ProductItem; qty: number }>).filter(item => item.qty > 0);
+  const subtotal = cartEntries.reduce((sum: number, item) => sum + item.product.price * item.qty, 0);
+  const discountAmount = Math.round(subtotal * (discountPercent / 100));
+  const grandTotal = Math.max(0, subtotal - discountAmount);
+  const farmerCut = Math.round(grandTotal * 0.88);
+
+  const handleApplyCoupon = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const code = coupon.trim().toUpperCase();
+    if (code === 'APNAANAJ15' || code === 'KRISHIDIRECT15' || code === 'DESHIKISAN' || code === 'KISAN15') {
+      setDiscountPercent(15);
+      setCouponSuccess('✓ 15% Welcome Discount Applied!');
+      setCouponError('');
+    } else if (code) {
+      setCouponError('Invalid coupon code. Try: APNAANAJ15');
+      setCouponSuccess('');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      
+      {/* Backdrop */}
+      <div 
+        onClick={onClose}
+        className="fixed inset-0 bg-black/50 backdrop-blur-xs animate-fadeIn cursor-pointer"
+      />
+
+      {/* Drawer */}
+      <div className="relative w-full max-w-md bg-[#fbf8ef] dark:bg-[#0d1a13] h-full shadow-2xl z-10 flex flex-col justify-between p-6 overflow-y-auto border-l border-[#e5dec9] dark:border-[#223f30]">
+        
+        {/* Top Header */}
+        <div>
+          <div className="flex items-center justify-between pb-4 border-b border-[#e5dec9] dark:border-[#223f30]">
+            <div className="flex items-center gap-2">
+              <h2 className="font-heading text-xl font-bold text-[#1f3427] dark:text-[#f4f8f5]">
+                🛒 Your Fresh Basket
+              </h2>
+              <span className="px-2 py-0.5 rounded-full bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] text-xs font-bold">
+                {cartEntries.length} Items
+              </span>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 text-[#5e7164] dark:text-[#9ab0a2] cursor-pointer"
+              aria-label="Close basket"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* 15 Min Delivery Promise */}
+          <div className="my-4 p-3 rounded-xl bg-[#e4f1cd] dark:bg-[#163824] border border-[#bed99f] dark:border-[#223f30] flex items-center gap-2 text-xs text-[#1e5634] dark:text-[#4ade80] font-bold">
+            <Zap className="w-4 h-4 shrink-0 text-[#f28b47]" />
+            <span>15-Minute Express Delivery from Local Farm Hub</span>
+          </div>
+
+          {/* Cart Item List */}
+          <div className="space-y-3 max-h-[42vh] overflow-y-auto pr-1">
+            {cartEntries.length === 0 ? (
+              <div className="text-center py-12 text-[#5e7164] dark:text-[#9ab0a2] space-y-2">
+                <p className="text-sm font-semibold">Your basket is currently empty.</p>
+                <p className="text-xs">Add fresh grains, veggies or dairy from the store!</p>
+              </div>
+            ) : (
+              cartEntries.map(({ product, qty }) => (
+                <div
+                  key={product.id}
+                  className="p-3.5 rounded-2xl bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30] flex items-center justify-between gap-3 shadow-xs"
+                >
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-12 h-12 rounded-xl object-cover shrink-0"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-xs text-[#1f3427] dark:text-[#f4f8f5] truncate">
+                      {product.name}
+                    </div>
+                    <div className="text-[11px] text-[#5e7164] dark:text-[#9ab0a2]">
+                      ₹{product.price} × {qty} = <span className="font-bold text-[#1e5634] dark:text-[#4ade80]">₹{product.price * qty}</span>
+                    </div>
+                    <div className="text-[9px] text-[#f28b47] font-bold">
+                      {product.farm}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center bg-[#1e5634] text-white rounded-lg p-0.5 shrink-0">
+                    <button
+                      onClick={() => onUpdateCart(product, -1)}
+                      className="w-5 h-5 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
+                      aria-label="Decrease quantity"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="px-1.5 text-xs font-bold min-w-[16px] text-center">
+                      {qty}
+                    </span>
+                    <button
+                      onClick={() => onUpdateCart(product, 1)}
+                      className="w-5 h-5 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
+                      aria-label="Increase quantity"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Checkout Section */}
+        <div className="pt-4 border-t border-[#e5dec9] dark:border-[#223f30] space-y-4">
+          
+          {/* Promo Code Input */}
+          <form onSubmit={handleApplyCoupon} className="space-y-1.5">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={coupon}
+                onChange={(e) => setCoupon(e.target.value)}
+                placeholder="Code: APNAANAJ15"
+                className="flex-1 px-3 py-2 text-xs rounded-xl bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30] text-[#1f3427] dark:text-[#f4f8f5] uppercase font-bold focus:outline-none focus:border-[#1e5634]"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[#1e5634] hover:bg-[#164327] text-white text-xs font-bold rounded-xl cursor-pointer transition-colors"
+              >
+                Apply
+              </button>
+            </div>
+            {couponSuccess && <div className="text-[11px] font-bold text-[#1e5634] dark:text-[#4ade80]">{couponSuccess}</div>}
+            {couponError && <div className="text-[11px] font-bold text-red-500">{couponError}</div>}
+          </form>
+
+          {/* Direct Farmer Contribution Note */}
+          <div className="p-2.5 rounded-xl bg-[#e4f1cd]/70 dark:bg-[#163824]/70 border border-[#bed99f] dark:border-[#223f30] flex items-center justify-between text-xs">
+            <span className="text-[#1f3427] dark:text-[#f4f8f5]">🌱 <strong>Farmer Direct Payout:</strong></span>
+            <strong className="text-[#1e5634] dark:text-[#4ade80]">₹{farmerCut} (88%)</strong>
+          </div>
+
+          {/* Pricing Tally */}
+          <div className="space-y-1.5 text-xs text-[#5e7164] dark:text-[#9ab0a2]">
+            <div className="flex justify-between">
+              <span>Subtotal:</span>
+              <span className="font-bold text-[#1f3427] dark:text-[#f4f8f5]">₹{subtotal}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-[#1e5634] dark:text-[#4ade80] font-bold">
+                <span>15% Harvest Discount:</span>
+                <span>- ₹{discountAmount}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span>Express Delivery (15-Min):</span>
+              <span className="font-bold text-[#1e5634] dark:text-[#4ade80]">FREE (₹0)</span>
+            </div>
+            <div className="pt-2 border-t border-[#e5dec9] dark:border-[#223f30] flex justify-between text-base font-bold text-[#1f3427] dark:text-[#f4f8f5]">
+              <span>Grand Total:</span>
+              <span className="font-heading text-xl text-[#1e5634] dark:text-[#4ade80]">₹{grandTotal}</span>
+            </div>
+          </div>
+
+          {/* Place Order CTA */}
+          <button
+            disabled={cartEntries.length === 0}
+            onClick={() => onCheckout(discountPercent)}
+            className="w-full py-3.5 rounded-2xl bg-[#f7c244] hover:bg-[#e6b338] text-[#1f3427] font-bold text-sm shadow-md flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+          >
+            <span>⚡ Confirm & Pay ₹{grandTotal}</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+
+        </div>
+
+      </div>
+
+    </div>
+  );
+};
+
+
+
+
+================================================================================
+FILE: src/components/FarmerDashboard.tsx
+================================================================================
+
+import React from 'react';
+import { 
+  Sprout, 
+  TrendingUp, 
+  Scale, 
+  Truck, 
+  Boxes, 
+  ArrowRight, 
+  CheckCircle2,
+  Wheat,
+  ShieldCheck
+} from 'lucide-react';
+import { FarmerProduce } from '../types';
+
+interface FarmerDashboardProps {
+  farmerName: string;
+  farmName: string;
+  farmerLoc: string;
+  produce: FarmerProduce;
+  onNavigateTab: (tabId: string) => void;
+}
+
+export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
+  farmerName,
+  farmName,
+  farmerLoc,
+  produce,
+  onNavigateTab
+}) => {
+  return (
+    <div className="space-y-6">
+      
+      {/* Header Info */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-2xl bg-[#276b45] text-white flex items-center justify-center text-xl font-bold">
+            {farmerName.split(' ').map(n => n[0]).join('').slice(0, 2) || 'RK'}
+          </div>
+          <div>
+            <div className="text-[10px] font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
+              Apna Anaj Verified Producer
+            </div>
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+              {farmerName}
+            </h1>
+            <p className="text-xs text-[#6d7e73] dark:text-[#9ab0a2] mt-0.5">
+              {farmName} • {farmerLoc}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onNavigateTab('view-add-produce')}
+          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-[#276b45] hover:bg-[#1e5636] text-white font-bold text-xs shadow-md shadow-[#276b45]/20 hover:-translate-y-0.5 transition-all cursor-pointer shrink-0"
+        >
+          <Sprout className="w-4 h-4" />
+          <span>+ Add Harvested Crop</span>
+        </button>
+      </div>
+
+      {/* 3 Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        
+        <div className="p-5 rounded-2xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm">
+          <span className="text-[10px] font-extrabold uppercase text-[#6d7e73] dark:text-[#9ab0a2] tracking-wider">
+            Active Crop Batch
+          </span>
+          <div className="font-heading font-bold text-xl text-[#20352b] dark:text-[#f4f8f5] my-1">
+            🌾 {produce.qty} KG {produce.crop}
+          </div>
+          <div className="text-xs font-bold text-[#276b45] dark:text-[#4ade80] flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Ready for Pooled EV Pickup</span>
+          </div>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm">
+          <span className="text-[10px] font-extrabold uppercase text-[#6d7e73] dark:text-[#9ab0a2] tracking-wider">
+            Current Direct Fair Rate
+          </span>
+          <div className="font-heading font-bold text-xl text-[#276b45] dark:text-[#4ade80] my-1">
+            ₹{produce.price} / KG Direct
+          </div>
+          <div className="text-xs text-[#6d7e73] dark:text-[#9ab0a2]">
+            +28% higher than local APMC Mandi
+          </div>
+        </div>
+
+        <div className="p-5 rounded-2xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm">
+          <span className="text-[10px] font-extrabold uppercase text-[#6d7e73] dark:text-[#9ab0a2] tracking-wider">
+            Logistics Compatibility
+          </span>
+          <div className="font-heading font-bold text-xl text-[#f28b47] my-1">
+            95% Route Match
+          </div>
+          <div className="text-xs text-[#276b45] dark:text-[#4ade80] font-bold">
+            Batched with 2 Neighboring Farms
+          </div>
+        </div>
+
+      </div>
+
+      {/* Workflow Navigation Quick Links */}
+      <div className="p-6 rounded-3xl bg-[#eaf5ce]/50 dark:bg-[#163824]/50 border border-[#dfe7df] dark:border-[#223f30] space-y-4">
+        <h3 className="font-heading text-lg font-bold text-[#20352b] dark:text-[#f4f8f5]">
+          Farmer Operations Suite
+        </h3>
+        
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <button
+            onClick={() => onNavigateTab('view-demand-forecast')}
+            className="p-4 rounded-xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] hover:border-[#276b45] text-left transition-all cursor-pointer"
+          >
+            <TrendingUp className="w-5 h-5 text-[#276b45] mb-2" />
+            <div className="text-xs font-bold text-[#20352b] dark:text-[#f4f8f5]">AI Demand Forecast</div>
+            <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">7-Day Price Trajectory</div>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab('view-selling-rec')}
+            className="p-4 rounded-xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] hover:border-[#276b45] text-left transition-all cursor-pointer"
+          >
+            <Scale className="w-5 h-5 text-[#276b45] mb-2" />
+            <div className="text-xs font-bold text-[#20352b] dark:text-[#f4f8f5]">Selling Recommendation</div>
+            <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">Net margin calculation</div>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab('view-route')}
+            className="p-4 rounded-xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] hover:border-[#276b45] text-left transition-all cursor-pointer"
+          >
+            <Truck className="w-5 h-5 text-[#276b45] mb-2" />
+            <div className="text-xs font-bold text-[#20352b] dark:text-[#f4f8f5]">EV Pickup Schedule</div>
+            <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">Shared cold transport</div>
+          </button>
+
+          <button
+            onClick={() => onNavigateTab('view-transparency')}
+            className="p-4 rounded-xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] hover:border-[#276b45] text-left transition-all cursor-pointer"
+          >
+            <ShieldCheck className="w-5 h-5 text-[#276b45] mb-2" />
+            <div className="text-xs font-bold text-[#20352b] dark:text-[#f4f8f5]">Price Transparency</div>
+            <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">88% direct bank payout</div>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/DemandForecast.tsx
+================================================================================
+
+import React from 'react';
+import { TrendingUp, ArrowLeft, ArrowRight, Lightbulb, Sparkles } from 'lucide-react';
+import { FarmerProduce } from '../types';
+
+interface DemandForecastProps {
+  produce: FarmerProduce;
+  onNext: () => void;
+  onBack: () => void;
+}
+
+export const DemandForecast: React.FC<DemandForecastProps> = ({
+  produce,
+  onNext,
+  onBack
+}) => {
+  const basePrice = produce.price || 48;
+  const days = [
+    { label: '3 Days Ago', price: Math.round(basePrice * 0.88), type: 'past', height: '45%' },
+    { label: '2 Days Ago', price: Math.round(basePrice * 0.92), type: 'past', height: '55%' },
+    { label: 'Yesterday', price: Math.round(basePrice * 0.96), type: 'past', height: '68%' },
+    { label: 'Today (Live)', price: basePrice, type: 'current', height: '80%' },
+    { label: 'Day +2', price: Math.round(basePrice * 1.08), type: 'pred', height: '90%' },
+    { label: 'Day +4', price: Math.round(basePrice * 1.15), type: 'pred', height: '95%' },
+    { label: 'Day +7', price: Math.round(basePrice * 1.22), type: 'pred', height: '100%' },
+  ];
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm space-y-6">
+        
+        <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
+          <TrendingUp className="w-4 h-4" />
+          <span>Apna Anaj AI Price Prediction Engine</span>
+        </div>
+
+        <div>
+          <h2 className="font-heading text-2xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+            📈 7-Day Demand & Fair Rate Trajectory
+          </h2>
+          <p className="text-xs sm:text-sm text-[#6d7e73] dark:text-[#9ab0a2] mt-1">
+            Real-time consumer demand curve for <strong className="text-[#20352b] dark:text-[#f4f8f5]">{produce.qty} KG {produce.crop}</strong> in 15-minute quick delivery fulfillment hubs.
+          </p>
+        </div>
+
+        {/* Chart Visualization */}
+        <div className="p-5 rounded-2xl bg-[#eaf5ce]/60 dark:bg-[#163824]/60 border border-[#dfe7df] dark:border-[#223f30] space-y-4">
+          
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+            <span className="text-[#20352b] dark:text-[#f4f8f5]">Price Progression (₹/KG)</span>
+            <div className="flex items-center gap-4 text-[11px]">
+              <span className="flex items-center gap-1.5 text-[#6d7e73] dark:text-[#9ab0a2]">
+                <span className="w-2.5 h-2.5 rounded bg-slate-300 dark:bg-slate-700" /> Historical
+              </span>
+              <span className="flex items-center gap-1.5 text-[#f28b47]">
+                <span className="w-2.5 h-2.5 rounded bg-[#f28b47]" /> Today (₹{basePrice})
+              </span>
+              <span className="flex items-center gap-1.5 text-[#276b45] dark:text-[#4ade80]">
+                <span className="w-2.5 h-2.5 rounded bg-[#276b45] dark:bg-[#4ade80]" /> Forecast (+22%)
+              </span>
+            </div>
+          </div>
+
+          {/* Bar Columns */}
+          <div className="h-44 flex items-end justify-between gap-2 sm:gap-4 pt-6 pb-2 border-b border-[#dfe7df] dark:border-[#223f30]">
+            {days.map((d, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center gap-2 h-full justify-end group">
+                <span className="text-[10px] font-bold text-[#6d7e73] dark:text-[#9ab0a2] opacity-0 group-hover:opacity-100 transition-opacity">
+                  ₹{d.price}
+                </span>
+                <div
+                  style={{ height: d.height }}
+                  className={`w-full rounded-t-lg transition-all duration-300 ${
+                    d.type === 'past'
+                      ? 'bg-slate-300 dark:bg-slate-700'
+                      : d.type === 'current'
+                      ? 'bg-[#f28b47] ring-2 ring-[#f28b47]/40'
+                      : 'bg-[#276b45] dark:bg-[#4ade80]'
+                  }`}
+                />
+                <span className="text-[10px] font-bold text-[#6d7e73] dark:text-[#9ab0a2] truncate max-w-[50px] text-center">
+                  {d.label}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          {/* AI Insights Card */}
+          <div className="flex items-start gap-2.5 p-3 rounded-xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] text-xs">
+            <Sparkles className="w-4 h-4 text-[#f28b47] shrink-0 mt-0.5" />
+            <div className="text-[#20352b] dark:text-[#f4f8f5]">
+              <strong>AI Market Signal:</strong> Urban household demand for pure <strong>{produce.crop}</strong> is at peak. Pooling your harvest today locks in an <strong>88% net direct payout (₹{Math.round(basePrice * 0.88)}/kg)</strong>.
+            </div>
+          </div>
+
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center justify-between pt-2 gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] text-[#20352b] dark:text-[#f4f8f5] font-bold text-xs hover:bg-[#eaf5ce]/50 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#276b45] hover:bg-[#1e5636] text-white font-bold text-xs shadow-md shadow-[#276b45]/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <span>View Selling Recommendation</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/SellingRecommendation.tsx
+================================================================================
+
+import React from 'react';
+import { Lightbulb, ArrowLeft, ArrowRight, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { FarmerProduce } from '../types';
+
+interface SellingRecommendationProps {
+  produce: FarmerProduce;
+  onNext: () => void;
+  onBack: () => void;
+}
+
+export const SellingRecommendation: React.FC<SellingRecommendationProps> = ({
+  produce,
+  onNext,
+  onBack
+}) => {
+  const basePrice = produce.price || 48;
+  const netRate = (basePrice * 0.88).toFixed(2);
+  const totalNet = Math.round(produce.qty * Number(netRate));
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6">
+      
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm space-y-6">
+        
+        <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
+          <Lightbulb className="w-4 h-4" />
+          <span>Profit Maximization Analysis</span>
+        </div>
+
+        <div>
+          <h2 className="font-heading text-2xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+            💡 Best Channel Recommendation
+          </h2>
+          <p className="text-xs sm:text-sm text-[#6d7e73] dark:text-[#9ab0a2] mt-1">
+            Comparative analysis of Apna Anaj direct payout vs traditional local mandi:
+          </p>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-[#eaf5ce] dark:bg-[#163824] border border-[#dfe7df] dark:border-[#223f30] space-y-4">
+          
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#276b45] text-white text-[11px] font-extrabold uppercase">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Highest Net Farmer Margin (98% Confidence)</span>
+          </div>
+
+          <div className="space-y-1">
+            <h3 className="font-heading text-xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+              Crop: 🌾 {produce.crop} ({produce.qty} KG Batch)
+            </h3>
+            <p className="text-xs text-[#6d7e73] dark:text-[#9ab0a2]">
+              Fulfillment: <strong>Apna Anaj 15-Minute Local Urban Hub</strong>
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className="p-3 rounded-xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30]">
+              <span className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2] font-bold uppercase">
+                Shared Cold EV Freight
+              </span>
+              <div className="font-bold text-sm text-[#20352b] dark:text-[#f4f8f5]">
+                ₹2.50 / KG
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30]">
+              <span className="text-[10px] text-[#276b45] dark:text-[#4ade80] font-bold uppercase">
+                Net Payout to Bank
+              </span>
+              <div className="font-bold text-base text-[#276b45] dark:text-[#4ade80]">
+                ₹{netRate} / KG
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white/80 dark:bg-[#15271e]/80 border border-[#dfe7df] dark:border-[#223f30] text-xs text-[#20352b] dark:text-[#f4f8f5]">
+            💬 <strong>Financial Summary:</strong> Direct dispatch generates <strong className="text-[#276b45] dark:text-[#4ade80]">₹{totalNet.toLocaleString()} net profit</strong>—over <strong>+35% higher return</strong> than selling to middlemen at traditional APMC auctions.
+          </div>
+
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center justify-between pt-2 gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] text-[#20352b] dark:text-[#f4f8f5] font-bold text-xs hover:bg-[#eaf5ce]/50 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#276b45] hover:bg-[#1e5636] text-white font-bold text-xs shadow-md shadow-[#276b45]/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <span>View Buyer Matching</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/BuyerMatching.tsx
+================================================================================
+
+import React from 'react';
+import { Handshake, ArrowLeft, ArrowRight, MapPin, Users, CheckCircle2 } from 'lucide-react';
+import { FarmerProduce } from '../types';
+
+interface BuyerMatchingProps {
+  farmerName: string;
+  produce: FarmerProduce;
+  onNext: () => void;
+  onBack: () => void;
+}
+
+export const BuyerMatching: React.FC<BuyerMatchingProps> = ({
+  farmerName,
+  produce,
+  onNext,
+  onBack
+}) => {
+  const totalBatch = Math.max(1000, produce.qty + 500);
+  const farmerBQty = Math.round((totalBatch - produce.qty) * 0.6);
+  const farmerCQty = totalBatch - produce.qty - farmerBQty;
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm space-y-6">
+        
+        <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
+          <Handshake className="w-4 h-4" />
+          <span>Apna Anaj Smart Matching</span>
+        </div>
+
+        <div>
+          <h2 className="font-heading text-2xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+            🤝 Smart Buyer & Route Matching
+          </h2>
+          <p className="text-xs sm:text-sm text-[#6d7e73] dark:text-[#9ab0a2] mt-1">
+            Aggregated harvest demand for your location, harvest timing, and organic quality tier:
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          
+          {/* Matched Batch Card */}
+          <div className="p-5 rounded-2xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] flex flex-col justify-between space-y-4">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase text-[#f28b47] tracking-wider">
+                Full Target Batch
+              </span>
+              <h3 className="font-heading text-xl font-bold text-[#20352b] dark:text-[#f4f8f5] mt-1">
+                🌾 {produce.crop} — {totalBatch.toLocaleString()} KG
+              </h3>
+              <div className="text-xs text-[#6d7e73] dark:text-[#9ab0a2] mt-1 space-y-0.5">
+                <div>Destination: <strong>Metro Quick-Commerce Hub</strong></div>
+                <div>Direct Price: <strong className="text-[#276b45] dark:text-[#4ade80]">₹{produce.price} / KG Direct</strong></div>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[#eaf5ce] dark:bg-[#163824] border border-[#276b45]/30">
+              <div className="text-xs font-bold text-[#276b45] dark:text-[#4ade80] flex items-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>95% Route Compatibility</span>
+              </div>
+              <p className="text-[11px] text-[#20352b] dark:text-[#f4f8f5] mt-1">
+                Batched alongside 2 neighbor farms to reduce your freight cost to just ₹2.50/kg.
+              </p>
+            </div>
+          </div>
+
+          {/* Farms In This Pooled Batch */}
+          <div className="p-5 rounded-2xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] space-y-3">
+            <span className="text-[10px] font-extrabold uppercase text-[#6d7e73] dark:text-[#9ab0a2] tracking-wider flex items-center gap-1">
+              <Users className="w-3.5 h-3.5" />
+              <span>Neighbor Farms in this Pooled Route</span>
+            </span>
+
+            <div className="space-y-2">
+              <div className="p-3 rounded-xl bg-[#eaf5ce]/80 dark:bg-[#163824]/80 border border-[#276b45]/30 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-xs text-[#20352b] dark:text-[#f4f8f5]">
+                    Farmer A ({farmerName} - You)
+                  </div>
+                  <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">{produce.loc}</div>
+                </div>
+                <div className="font-bold text-xs text-[#276b45] dark:text-[#4ade80]">
+                  {produce.qty} KG
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-xs text-[#20352b] dark:text-[#f4f8f5]">
+                    Farmer B (Suresh Patil)
+                  </div>
+                  <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">Satara / Malwa Sector</div>
+                </div>
+                <div className="font-bold text-xs text-[#276b45] dark:text-[#4ade80]">
+                  {farmerBQty} KG
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-xs text-[#20352b] dark:text-[#f4f8f5]">
+                    Farmer C (Anita More)
+                  </div>
+                  <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">Nashik / Bhopal Belt</div>
+                </div>
+                <div className="font-bold text-xs text-[#276b45] dark:text-[#4ade80]">
+                  {farmerCQty} KG
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center justify-between pt-2 gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] text-[#20352b] dark:text-[#f4f8f5] font-bold text-xs hover:bg-[#eaf5ce]/50 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#276b45] hover:bg-[#1e5636] text-white font-bold text-xs shadow-md shadow-[#276b45]/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <span>View Quantity Pooling</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/QuantityPooling.tsx
+================================================================================
+
+import React from 'react';
+import { Boxes, ArrowLeft, ArrowRight, CheckCircle2, TrendingUp } from 'lucide-react';
+import { FarmerProduce } from '../types';
+
+interface QuantityPoolingProps {
+  farmerName: string;
+  produce: FarmerProduce;
+  onNext: () => void;
+  onBack: () => void;
+}
+
+export const QuantityPooling: React.FC<QuantityPoolingProps> = ({
+  farmerName,
+  produce,
+  onNext,
+  onBack
+}) => {
+  const totalBatch = Math.max(1000, produce.qty + 500);
+  const shareA = Math.round((produce.qty / totalBatch) * 100);
+  const farmerBQty = Math.round((totalBatch - produce.qty) * 0.6);
+  const shareB = Math.round((farmerBQty / totalBatch) * 100);
+  const farmerCQty = totalBatch - produce.qty - farmerBQty;
+  const shareC = 100 - shareA - shareB;
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6">
+      
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm space-y-6">
+        
+        <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
+          <Boxes className="w-4 h-4" />
+          <span>Apna Anaj Cooperative Pooling</span>
+        </div>
+
+        <div>
+          <h2 className="font-heading text-2xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+            📦 Shared Quantity Pooling
+          </h2>
+          <p className="text-xs sm:text-sm text-[#6d7e73] dark:text-[#9ab0a2] mt-1">
+            Aggregated harvest volume from neighboring verified farms to fill cold EV transport:
+          </p>
+        </div>
+
+        <div className="p-6 rounded-2xl bg-[#eaf5ce] dark:bg-[#163824] border border-[#dfe7df] dark:border-[#223f30] space-y-5">
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-extrabold uppercase text-[#6d7e73] dark:text-[#9ab0a2] tracking-wider">
+                Full Pooled Volume
+              </span>
+              <h3 className="font-heading text-2xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+                🌾 {totalBatch.toLocaleString()} KG {produce.crop}
+              </h3>
+            </div>
+            <span className="px-3 py-1 rounded-full bg-[#276b45] text-white text-xs font-bold flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>100% Target Met</span>
+            </span>
+          </div>
+
+          {/* Progress Bar for Shares */}
+          <div className="space-y-1.5">
+            <div className="h-3 w-full bg-white dark:bg-[#15271e] rounded-full overflow-hidden flex">
+              <div style={{ width: `${shareA}%` }} className="bg-[#276b45] h-full" title={`You: ${shareA}%`} />
+              <div style={{ width: `${shareB}%` }} className="bg-[#f28b47] h-full" title={`Farmer B: ${shareB}%`} />
+              <div style={{ width: `${shareC}%` }} className="bg-[#f8ce58] h-full" title={`Farmer C: ${shareC}%`} />
+            </div>
+            <div className="flex justify-between text-[10px] font-bold text-[#6d7e73] dark:text-[#9ab0a2]">
+              <span className="text-[#276b45] dark:text-[#4ade80]">■ You ({shareA}%)</span>
+              <span className="text-[#f28b47]">■ Farmer B ({shareB}%)</span>
+              <span className="text-[#f8ce58]">■ Farmer C ({shareC}%)</span>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-[#dfe7df]/60 dark:border-[#223f30]">
+            <div className="p-3 rounded-xl bg-white dark:bg-[#15271e] flex items-center justify-between text-xs">
+              <span className="font-bold text-[#20352b] dark:text-[#f4f8f5]">Farmer A (You - {farmerName})</span>
+              <strong className="text-[#276b45] dark:text-[#4ade80]">{produce.qty} KG ({shareA}%)</strong>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-[#15271e] flex items-center justify-between text-xs">
+              <span className="font-bold text-[#20352b] dark:text-[#f4f8f5]">Farmer B (Suresh Patil)</span>
+              <strong className="text-[#20352b] dark:text-[#f4f8f5]">{farmerBQty} KG ({shareB}%)</strong>
+            </div>
+
+            <div className="p-3 rounded-xl bg-white dark:bg-[#15271e] flex items-center justify-between text-xs">
+              <span className="font-bold text-[#20352b] dark:text-[#f4f8f5]">Farmer C (Anita More)</span>
+              <strong className="text-[#20352b] dark:text-[#f4f8f5]">{farmerCQty} KG ({shareC}%)</strong>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center justify-between pt-2 gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] text-[#20352b] dark:text-[#f4f8f5] font-bold text-xs hover:bg-[#eaf5ce]/50 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#276b45] hover:bg-[#1e5636] text-white font-bold text-xs shadow-md shadow-[#276b45]/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <span>View Pickup Route</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/PriceTransparency.tsx
+================================================================================
+
+import React from 'react';
+import { Scale, ArrowLeft, ArrowRight, ShieldCheck, ArrowDown } from 'lucide-react';
+import { FarmerProduce } from '../types';
+
+interface PriceTransparencyProps {
+  produce: FarmerProduce;
+  onNext: () => void;
+  onBack: () => void;
+}
+
+export const PriceTransparency: React.FC<PriceTransparencyProps> = ({
+  produce,
+  onNext,
+  onBack
+}) => {
+  const consumerPrice = produce.price || 48;
+  const farmerRate = (consumerPrice * 0.88).toFixed(2);
+  const logisticsRate = '2.50';
+  const packRate = (consumerPrice - Number(farmerRate) - Number(logisticsRate)).toFixed(2);
+  const totalPayout = Math.round(produce.qty * Number(farmerRate));
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6">
+      
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm space-y-6">
+        
+        <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
+          <Scale className="w-4 h-4" />
+          <span>Zero Commission Guarantee</span>
+        </div>
+
+        <div>
+          <h2 className="font-heading text-2xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+            💰 100% Transparent Price Breakdown
+          </h2>
+          <p className="text-xs sm:text-sm text-[#6d7e73] dark:text-[#9ab0a2] mt-1">
+            Every rupee from consumer checkout is accounted for. Farmer receives 88% net directly:
+          </p>
+        </div>
+
+        {/* Waterfall Breakdown */}
+        <div className="space-y-2">
+          
+          <div className="p-4 rounded-2xl bg-[#eaf5ce] dark:bg-[#163824] border border-[#276b45]/30 flex items-center justify-between">
+            <div>
+              <div className="font-bold text-xs text-[#20352b] dark:text-[#f4f8f5]">
+                1. Farmer Direct Bank Deposit
+              </div>
+              <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">
+                88% of Consumer Price (Guaranteed)
+              </div>
+            </div>
+            <div className="font-heading font-bold text-lg text-[#276b45] dark:text-[#4ade80]">
+              ₹{farmerRate} / KG
+            </div>
+          </div>
+
+          <div className="flex justify-center text-[#276b45] dark:text-[#4ade80]">
+            <ArrowDown className="w-4 h-4" />
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] flex items-center justify-between">
+            <div>
+              <div className="font-bold text-xs text-[#20352b] dark:text-[#f4f8f5]">
+                2. Shared Cold EV Logistics
+              </div>
+              <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">
+                Farm-to-hub aggregated route
+              </div>
+            </div>
+            <div className="font-bold text-sm text-[#20352b] dark:text-[#f4f8f5]">
+              + ₹{logisticsRate} / KG
+            </div>
+          </div>
+
+          <div className="flex justify-center text-[#276b45] dark:text-[#4ade80]">
+            <ArrowDown className="w-4 h-4" />
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] flex items-center justify-between">
+            <div>
+              <div className="font-bold text-xs text-[#20352b] dark:text-[#f4f8f5]">
+                3. Quality Grading & Eco-Pack
+              </div>
+              <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">
+                Zero-plastic breathable bags
+              </div>
+            </div>
+            <div className="font-bold text-sm text-[#20352b] dark:text-[#f4f8f5]">
+              + ₹{packRate} / KG
+            </div>
+          </div>
+
+          <div className="flex justify-center text-[#f28b47]">
+            <ArrowDown className="w-4 h-4" />
+          </div>
+
+          <div className="p-4 rounded-2xl bg-[#fff3ec] dark:bg-[#3d2314] border border-[#f28b47]/30 flex items-center justify-between">
+            <div>
+              <div className="font-bold text-xs text-[#f28b47]">
+                Total Consumer Doorstep Price
+              </div>
+              <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">
+                15-minute quick delivery
+              </div>
+            </div>
+            <div className="font-heading font-bold text-xl text-[#f28b47]">
+              ₹{consumerPrice}.00 / KG
+            </div>
+          </div>
+
+        </div>
+
+        {/* Total Batch Payout Callout */}
+        <div className="p-5 rounded-2xl bg-[#276b45] text-white text-center shadow-md space-y-1">
+          <span className="text-[10px] font-extrabold uppercase text-[#f8ce58] tracking-wider">
+            Total Net Payout ({produce.qty} KG {produce.crop.toUpperCase()})
+          </span>
+          <div className="font-heading font-bold text-3xl text-white">
+            ₹{totalPayout.toLocaleString()}
+          </div>
+          <p className="text-[11px] text-white/80">
+            Transferred automatically to your bank account upon EV pickup verification.
+          </p>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex items-center justify-between pt-2 gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] text-[#20352b] dark:text-[#f4f8f5] font-bold text-xs hover:bg-[#eaf5ce]/50 transition-all cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onNext}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#276b45] hover:bg-[#1e5636] text-white font-bold text-xs shadow-md shadow-[#276b45]/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+          >
+            <span>View Active Batches</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/OrdersView.tsx
+================================================================================
+
+import React from 'react';
+import { PackageOpen, Clock, ArrowRight, ShieldCheck, Truck } from 'lucide-react';
+import { OrderRecord, UserRole, FarmerProduce } from '../types';
+
+interface OrdersViewProps {
+  userRole: UserRole;
+  orders: OrderRecord[];
+  farmerProduce: FarmerProduce;
+  onNavigateStore: () => void;
+}
+
+export const OrdersView: React.FC<OrdersViewProps> = ({
+  userRole,
+  orders,
+  farmerProduce,
+  onNavigateStore
+}) => {
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm space-y-6">
+        
+        <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
+          <PackageOpen className="w-4 h-4" />
+          <span>Transactions & Fulfillment</span>
+        </div>
+
+        <div>
+          <h2 className="font-heading text-2xl font-bold text-[#20352b] dark:text-[#f4f8f5]">
+            {userRole === 'buyer' ? '🛍️ My Recent Orders' : '📦 Dispatched Farm Batches'}
+          </h2>
+          <p className="text-xs sm:text-sm text-[#6d7e73] dark:text-[#9ab0a2] mt-1">
+            {userRole === 'buyer'
+              ? 'Real-time order statuses and direct farmer livelihood contribution tally:'
+              : 'Active pooled shipments and direct bank remittance records:'}
+          </p>
+        </div>
+
+        {/* Buyer View */}
+        {userRole === 'buyer' ? (
+          <div className="space-y-4">
+            {orders.length === 0 ? (
+              <div className="text-center py-10 p-6 rounded-2xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] space-y-3">
+                <p className="text-xs text-[#6d7e73] dark:text-[#9ab0a2]">You haven't placed any farm orders yet.</p>
+                <button
+                  onClick={onNavigateStore}
+                  className="px-5 py-2.5 rounded-xl bg-[#276b45] text-white text-xs font-bold shadow-md cursor-pointer hover:bg-[#1e5636] transition-all"
+                >
+                  Shop Fresh Farm Harvests ⚡
+                </button>
+              </div>
+            ) : (
+              orders.map((ord) => (
+                <div
+                  key={ord.id}
+                  className="p-4 sm:p-5 rounded-2xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] space-y-2 hover:border-[#276b45] transition-colors"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-sm text-[#20352b] dark:text-[#f4f8f5]">
+                        Order #{ord.id} • ₹{ord.total}
+                      </div>
+                      <div className="text-xs text-[#6d7e73] dark:text-[#9ab0a2] mt-0.5">
+                        {ord.items}
+                      </div>
+                    </div>
+                    <span className="px-3 py-1 rounded-full bg-[#eaf5ce] dark:bg-[#163824] text-[#276b45] dark:text-[#4ade80] text-xs font-bold">
+                      {ord.status}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#dfe7df]/60 dark:border-[#223f30] flex items-center justify-between text-[11px]">
+                    <span className="text-[#6d7e73] dark:text-[#9ab0a2]">Placed at {ord.time}</span>
+                    <span className="font-bold text-[#276b45] dark:text-[#4ade80]">
+                      🌱 Farmer Got: ₹{ord.farmerPayout}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          /* Farmer View */
+          <div className="space-y-4">
+            <div className="p-5 rounded-2xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="font-bold text-sm text-[#20352b] dark:text-[#f4f8f5]">
+                    Batch #KD-9021 • 🌾 {farmerProduce.crop} (1,000 KG Pooled)
+                  </div>
+                  <div className="text-xs text-[#6d7e73] dark:text-[#9ab0a2] mt-0.5">
+                    Your contribution: {farmerProduce.qty} KG • Destination: Metro Hub
+                  </div>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-[#eaf5ce] dark:bg-[#163824] text-[#276b45] dark:text-[#4ade80] text-xs font-bold">
+                  🚚 Dispatched in Cold EV
+                </span>
+              </div>
+
+              <div className="pt-2 border-t border-[#dfe7df]/60 dark:border-[#223f30] flex items-center justify-between text-xs">
+                <span className="text-[#6d7e73] dark:text-[#9ab0a2]">Pickup Time: 5:30 AM</span>
+                <strong className="text-[#276b45] dark:text-[#4ade80]">
+                  Payout: ₹{Math.round(farmerProduce.qty * (farmerProduce.price * 0.88)).toLocaleString()} (Bank Settled)
+                </strong>
+              </div>
+            </div>
+
+            <div className="p-5 rounded-2xl bg-[#faf5e8] dark:bg-[#0e1a14] border border-[#dfe7df] dark:border-[#223f30] space-y-3 opacity-80">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <div className="font-bold text-sm text-[#20352b] dark:text-[#f4f8f5]">
+                    Batch #KD-8814 • 🍅 Desi Tomatoes (800 KG Pooled)
+                  </div>
+                  <div className="text-xs text-[#6d7e73] dark:text-[#9ab0a2] mt-0.5">
+                    Delivered & 100% Fulfilled
+                  </div>
+                </div>
+                <span className="px-3 py-1 rounded-full bg-[#276b45] text-white text-xs font-bold">
+                  ✅ Completed
+                </span>
+              </div>
+
+              <div className="pt-2 border-t border-[#dfe7df]/60 dark:border-[#223f30] flex items-center justify-between text-xs">
+                <span className="text-[#6d7e73] dark:text-[#9ab0a2]">Delivered Yesterday</span>
+                <strong className="text-[#276b45] dark:text-[#4ade80]">
+                  ₹11,264 Deposited
+                </strong>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/JoinModal.tsx
+================================================================================
+
+import React, { useState } from 'react';
+import { X, ShoppingBag, Wheat, ArrowRight } from 'lucide-react';
+import { UserRole } from '../types';
+
+interface JoinModalProps {
+  isOpen: boolean;
+  initialRole: 'buyer' | 'farmer';
+  onClose: () => void;
+  onConfirmJoin: (role: 'buyer' | 'farmer', name: string, phone: string) => void;
+}
+
+export const JoinModal: React.FC<JoinModalProps> = ({
+  isOpen,
+  initialRole,
+  onClose,
+  onConfirmJoin
+}) => {
+  const [role, setRole] = useState<'buyer' | 'farmer'>(initialRole || 'buyer');
+  const [name, setName] = useState(initialRole === 'farmer' ? 'Ramesh Kumar' : 'Krish Kumar');
+  const [phone, setPhone] = useState('9876543210');
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onConfirmJoin(role, name || (role === 'farmer' ? 'Ramesh Kumar' : 'Krish Kumar'), phone);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div 
+        onClick={onClose}
+        className="fixed inset-0 bg-black/60 backdrop-blur-xs animate-fadeIn cursor-pointer"
+      />
+
+      <div className="relative w-full max-w-md bg-[#faf5e8] dark:bg-[#0e1a14] rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#dfe7df] dark:border-[#223f30] z-10 space-y-5 animate-scaleUp">
+        
+        <button
+          onClick={onClose}
+          className="absolute top-5 right-5 p-1 rounded-full text-[#6d7e73] hover:text-[#20352b] dark:hover:text-white cursor-pointer"
+          aria-label="Close dialog"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div>
+          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#276b45] dark:text-[#4ade80]">
+            Join Apna Anaj
+          </span>
+          <h2 className="font-heading text-2xl font-bold text-[#20352b] dark:text-[#f4f8f5] mt-1">
+            Let's get you connected.
+          </h2>
+          <p className="text-xs text-[#6d7e73] dark:text-[#9ab0a2] mt-0.5">
+            Choose how you want to experience pure Indian harvest:
+          </p>
+        </div>
+
+        {/* Role toggle */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setRole('buyer')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              role === 'buyer'
+                ? 'bg-[#eaf5ce] dark:bg-[#163824] border-[#276b45] text-[#276b45] dark:text-[#4ade80]'
+                : 'bg-white dark:bg-[#15271e] border-[#dfe7df] dark:border-[#223f30] text-[#6d7e73] dark:text-[#9ab0a2]'
+            }`}
+          >
+            <ShoppingBag className="w-5 h-5 mb-1.5" />
+            <div className="font-bold text-xs text-[#20352b] dark:text-[#f4f8f5]">I want to buy</div>
+            <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">15-min delivery</div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setRole('farmer')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+              role === 'farmer'
+                ? 'bg-[#eaf5ce] dark:bg-[#163824] border-[#276b45] text-[#276b45] dark:text-[#4ade80]'
+                : 'bg-white dark:bg-[#15271e] border-[#dfe7df] dark:border-[#223f30] text-[#6d7e73] dark:text-[#9ab0a2]'
+            }`}
+          >
+            <Wheat className="w-5 h-5 mb-1.5" />
+            <div className="font-bold text-xs text-[#20352b] dark:text-[#f4f8f5]">I want to sell</div>
+            <div className="text-[10px] text-[#6d7e73] dark:text-[#9ab0a2]">Direct fair rates</div>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-3.5">
+          <div>
+            <label className="block text-xs font-bold text-[#20352b] dark:text-[#f4f8f5] mb-1">
+              Full Name
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Ramesh Kumar or Krish Kumar"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] bg-white dark:bg-[#15271e] text-[#20352b] dark:text-[#f4f8f5] text-xs focus:outline-none focus:border-[#276b45]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#20352b] dark:text-[#f4f8f5] mb-1">
+              Mobile Number
+            </label>
+            <input
+              type="tel"
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+91 98765 43210"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] bg-white dark:bg-[#15271e] text-[#20352b] dark:text-[#f4f8f5] text-xs focus:outline-none focus:border-[#276b45]"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="w-full py-3 rounded-xl bg-[#276b45] hover:bg-[#1e5636] text-white text-xs font-bold shadow-md shadow-[#276b45]/20 flex items-center justify-center gap-2 transition-all cursor-pointer mt-4"
+          >
+            <span>Create Apna Anaj Account</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </form>
+
+      </div>
+    </div>
+  );
+};
+
+
+
+================================================================================
+FILE: src/components/AuthLogin.tsx
+================================================================================
+
+import React, { useState } from 'react';
+import { Lock, ShoppingBag, Wheat, ArrowLeft, ArrowRight } from 'lucide-react';
+import { UserRole } from '../types';
+
+interface AuthLoginProps {
+  onLogin: (role: 'buyer' | 'farmer', name: string) => void;
+  onBack: () => void;
+}
+
+export const AuthLogin: React.FC<AuthLoginProps> = ({ onLogin, onBack }) => {
+  const [selectedRole, setSelectedRole] = useState<'buyer' | 'farmer'>('buyer');
+  const [identifier, setIdentifier] = useState('9625700458');
+  const [password, setPassword] = useState('123456');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const userName = selectedRole === 'farmer' ? 'Ramesh Kumar' : 'Krish Kumar';
+    onLogin(selectedRole, userName);
+  };
+
+  return (
+    <div className="max-w-md mx-auto space-y-6">
+      
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#e5dec9] dark:border-[#223f30] shadow-sm">
+        
+        <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#1e5634] dark:text-[#4ade80] tracking-widest mb-1">
+          <Lock className="w-4 h-4" />
+          <span>Apna Anaj Security</span>
+        </div>
+
+        <h2 className="font-heading text-2xl font-bold text-[#1f3427] dark:text-[#f4f8f5] mb-2">
+          Account Login (लॉगिन)
+        </h2>
+
+        <p className="text-xs text-[#5e7164] dark:text-[#9ab0a2] mb-6">
+          Choose your account type to access your active portal:
+        </p>
+
+        {/* Role Toggle */}
+        <div className="grid grid-cols-2 gap-3 mb-5">
+          <button
+            type="button"
+            onClick={() => setSelectedRole('buyer')}
+            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              selectedRole === 'buyer'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border-2 border-[#1e5634]'
+                : 'bg-[#fbf8ef] dark:bg-[#0d1a13] text-[#5e7164] dark:text-[#9ab0a2] border border-[#e5dec9] dark:border-[#223f30]'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>🛒 Buyer Login</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSelectedRole('farmer')}
+            className={`flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              selectedRole === 'farmer'
+                ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border-2 border-[#1e5634]'
+                : 'bg-[#fbf8ef] dark:bg-[#0d1a13] text-[#5e7164] dark:text-[#9ab0a2] border border-[#e5dec9] dark:border-[#223f30]'
+            }`}
+          >
+            <Wheat className="w-4 h-4" />
+            <span>🧑‍🌾 Farmer Login</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-[#1f3427] dark:text-[#f4f8f5] mb-1">
+              Mobile Number / Email ID
+            </label>
+            <input
+              type="text"
+              required
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              placeholder="Registered mobile or email"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#e5dec9] dark:border-[#223f30] bg-[#fbf8ef] dark:bg-[#0d1a13] text-[#1f3427] dark:text-[#f4f8f5] text-sm focus:outline-none focus:border-[#1e5634]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#1f3427] dark:text-[#f4f8f5] mb-1">
+              Password or OTP (One-Time Password)
+            </label>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password or OTP"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#e5dec9] dark:border-[#223f30] bg-[#fbf8ef] dark:bg-[#0d1a13] text-[#1f3427] dark:text-[#f4f8f5] text-sm focus:outline-none focus:border-[#1e5634]"
+            />
+          </div>
+
+          <div className="flex items-center justify-between pt-4 gap-3">
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#e5dec9] dark:border-[#223f30] text-[#1f3427] dark:text-[#f4f8f5] font-bold text-xs hover:bg-[#e4f1cd]/50 transition-all cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#1e5634] hover:bg-[#164327] text-white font-bold text-xs shadow-md shadow-[#1e5634]/20 hover:-translate-y-0.5 transition-all cursor-pointer"
+            >
+              <span>Login to Apna Anaj</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  );
+};
+
+
+
