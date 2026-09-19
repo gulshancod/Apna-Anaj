@@ -275,9 +275,36 @@ export default function App() {
     setIsJoinModalOpen(true);
   };
 
-  const handleConfirmJoin = (role: 'buyer' | 'farmer', name: string) => {
-    setIsJoinModalOpen(false);
-    handleLogin(role, name);
+  const handleConfirmJoin = (
+    role: 'buyer' | 'farmer',
+    name: string,
+    phone: string,
+    password: string
+  ) => {
+    void registerUser({
+      role,
+      name,
+      phone,
+      password,
+      farm: role === 'farmer' ? '' : undefined,
+      location: '',
+      address: ''
+    })
+      .then((user) => {
+        setIsJoinModalOpen(false);
+        setCurrentUser({
+          role: user.role,
+          name: user.name,
+          farm: user.farm,
+          location: user.location,
+          address: user.address
+        });
+        showToast(`Welcome ${user.name}! Your account is ready.`);
+        setCurrentTab(user.role === 'farmer' ? 'view-farmer-dash' : 'view-buyer-store');
+      })
+      .catch((error) => {
+        showToast(error instanceof Error ? error.message : 'Unable to create account.');
+      });
   };
 
   const handleCheckout = (appliedDiscount: number) => {
