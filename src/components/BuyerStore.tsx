@@ -119,7 +119,6 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
           });
         }
       } catch {
-        productCropsFallback:
         products.forEach((product) => {
           if (!(product.id in nextPrices)) {
             nextPrices[product.id] = null;
@@ -287,7 +286,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   {mandiLoading && (
-                    <div className="absolute inset-0 skeleton" aria-hidden="true" />
+                    <div className="pointer-events-none absolute inset-0 skeleton" aria-hidden="true" />
                   )}
                   
                   {/* Farm Tag */}
