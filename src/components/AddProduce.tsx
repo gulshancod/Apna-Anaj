@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { LanguageCode } from '../types';
+import { translations } from '../data/translations';
 import { Sprout, ArrowLeft, ArrowRight, Wheat, Calendar, MapPin, IndianRupee } from 'lucide-react';
 import { FarmerProduce } from '../types';
 
