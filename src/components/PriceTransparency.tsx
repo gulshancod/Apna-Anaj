@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { apiFetch } from '../lib/api';
 import {
   ArrowLeft,
   ArrowRight,
@@ -34,8 +35,7 @@ export const PriceTransparency: React.FC<PriceTransparencyProps> = ({
     setLoading(true);
     setError("");
 
-    fetch(
-      `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(crop)}`
+    apiFetch(`/api/market-summary?crop=${encodeURIComponent(crop)}`
     )
       .then((res) => {
         if (!res.ok) throw new Error("Market API failed");
