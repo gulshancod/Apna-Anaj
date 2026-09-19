@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { apiFetch } from '../lib/api';
 import { 
   Search, 
   Zap, 
@@ -87,8 +88,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
           }
 
           try {
-            const response = await fetch(
-              `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(crop)}`
+            const response = await apiFetch(`/api/market-summary?crop=${encodeURIComponent(crop)}`
             );
             const result = await response.json();
 
@@ -124,7 +124,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
     setPricePopup({ productName, loading: true, data: null, error: '' });
     try {
       const crop = getMandiCropName(productName);
-      const response = await fetch(`https://apna-anaj-backend.onrender.com/api/price-comparison?crop=${encodeURIComponent(crop)}`);
+      const response = await apiFetch(`/api/price-comparison?crop=${encodeURIComponent(crop)}`);
       const result = await response.json();
       if (!response.ok || !result.success) {
         throw new Error(result.message || 'Historical mandi price data is not available.');
