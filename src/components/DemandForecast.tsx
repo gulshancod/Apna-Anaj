@@ -107,15 +107,32 @@ export const DemandForecast: React.FC<DemandForecastProps> = ({
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto">
-        <div className="p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] shadow-sm text-center">
-          <TrendingUp className="w-8 h-8 mx-auto mb-3 text-[#276b45] animate-pulse" />
+      <div className="mx-auto max-w-3xl space-y-5 animate-fadeIn">
+        <div className="premium-card p-5 sm:p-7">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="h-3 w-36 rounded skeleton" />
+              <div className="mt-3 h-7 w-72 rounded skeleton" />
+              <div className="mt-2 h-4 w-96 max-w-full rounded skeleton" />
+            </div>
+            <div className="premium-icon skeleton" />
+          </div>
 
-          <p className="font-bold text-[#20352b] dark:text-white">
-            Fetching latest mandi prices...
-          </p>
+          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-24 rounded-2xl skeleton" />
+            ))}
+          </div>
 
-          <p className="text-xs text-[#6d7e73] mt-1">
+          <div className="mt-5 h-56 rounded-2xl skeleton" />
+        </div>
+
+        <div className="rounded-2xl border border-[#dfe7df] bg-[#f7fbf4] p-4 dark:border-[#223f30] dark:bg-[#13271d]">
+          <div className="flex items-center gap-2 text-xs font-bold text-[#276b45] dark:text-[#4ade80]">
+            <Sparkles className="h-4 w-4" />
+            Analysing live mandi data…
+          </div>
+          <p className="mt-1 text-[11px] text-[#6d7e73] dark:text-[#9ab0a2]">
             Government of India • AGMARKNET
           </p>
         </div>
@@ -391,15 +408,19 @@ export const DemandForecast: React.FC<DemandForecastProps> = ({
   return (
     <div className="max-w-2xl mx-auto space-y-6">
 
-      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-[#15271e] border border-[#dfe7df] dark:border-[#223f30] shadow-sm space-y-6">
+      <div className="premium-card p-5 sm:p-7 space-y-6">
 
         {/* HEADER */}
 
-        <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs font-extrabold uppercase text-[#276b45] dark:text-[#4ade80] tracking-widest">
           <TrendingUp className="w-4 h-4" />
 
-          <span>
-            Apna Anaj AI Demand Forecast
+            <span>Apna Anaj AI Demand Forecast</span>
+          </div>
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-[#eef6e8] px-3 py-1.5 text-[10px] font-black text-[#276b45] dark:bg-[#163824] dark:text-[#4ade80]">
+            <Sparkles className="h-3.5 w-3.5" />
+            Live market signal
           </span>
         </div>
 
@@ -468,7 +489,7 @@ export const DemandForecast: React.FC<DemandForecastProps> = ({
             </p>
 
             <div
-              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border font-bold text-sm ${demandColor}`}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border font-black text-base ${demandColor}`}
             >
 
               <DemandIcon className="w-4 h-4" />
@@ -626,15 +647,16 @@ export const DemandForecast: React.FC<DemandForecastProps> = ({
 
           {/* RECOMMENDATION */}
 
-          <div className="p-4 rounded-xl bg-[#276b45] text-white">
+          <div className="relative overflow-hidden rounded-2xl bg-[#1e5634] p-5 text-white shadow-lg shadow-[#1e5634]/10">
 
             <p className="text-xs opacity-80">
               Farmer Recommendation
             </p>
 
-            <p className="font-bold text-lg">
-              💡 {recommendation}
-            </p>
+            <div className="mt-1 flex flex-wrap items-end justify-between gap-3">
+              <p className="font-heading text-2xl font-bold">💡 {recommendation}</p>
+              <span className="rounded-full bg-white/10 px-3 py-1 text-[10px] font-bold text-white/85">Actionable next step</span>
+            </div>
 
           </div>
 
