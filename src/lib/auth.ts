@@ -19,10 +19,38 @@ interface AuthResponse {
 }
 
 async function readResponse(response: Response): Promise<AuthResponse> {
-  const data = await response.json().catch(() => ({}));
+  const contentType = response.headers.get('content-type') || '';
+  let data: AuthResponse | null = null;
+  let rawBody = '';
 
-  if (!response.ok || !data.success) {
-    throw new Error(data.message || 'Something went wrong. Please try again.');
+  try {
+    if (contentType.includes('application/json')) {
+      data = (await response.json()) as AuthResponse;
+    } else {
+      rawBody = await response.text();
+    }
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok || !data?.success) {
+    const serverMessage = data?.message?.trim();
+
+    if (serverMessage) {
+      throw new Error(serverMessage);
+    }
+
+    if (response.status) {
+      throw new Error(
+        `Backend request failed (${response.status}). Please check the backend service and try again.`
+      );
+    }
+
+    if (rawBody.trim()) {
+      throw new Error('Backend returned an unexpected response. Please try again.');
+    }
+
+    throw new Error('Unable to connect to the backend. Please try again.');
   }
 
   return data;
