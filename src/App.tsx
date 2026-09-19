@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { translations } from './data/translations';
 import confetti from 'canvas-confetti';
 import { UserRole, LanguageCode, ProductItem, FarmerProduce, OrderRecord } from './types';
 import { initialProducts } from './data/mockData';
@@ -28,7 +29,10 @@ import { MobileNav } from './components/MobileNav';
 import { getCurrentUser, loginUser, logoutUser, registerUser } from './lib/auth';
 
 export default function App() {
-  const [currentLang, setCurrentLang] = useState<LanguageCode>('en');
+  const [currentLang, setCurrentLang] = useState<LanguageCode>(() => {
+    const saved = localStorage.getItem('apnaAnajLanguage') as LanguageCode | null;
+    return saved && saved in translations ? saved : 'en';
+  });
   const [currentUser, setCurrentUser] = useState<{
     role: UserRole;
     name: string;
@@ -66,6 +70,14 @@ export default function App() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Sync Dark Theme
+  useEffect(() => {
+    localStorage.setItem('apnaAnajLanguage', currentLang);
+  }, [currentLang]);
+
+  useEffect(() => {
+    document.documentElement.lang = currentLang === 'hi' ? 'hi' : currentLang === 'pa' ? 'pa' : currentLang === 'bn' ? 'bn' : currentLang === 'gu' ? 'gu' : currentLang === 'mr' ? 'mr' : currentLang === 'te' ? 'te' : currentLang === 'ta' ? 'ta' : currentLang === 'kn' ? 'kn' : 'en';
+  }, [currentLang]);
+
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.setAttribute('data-theme', 'dark');
