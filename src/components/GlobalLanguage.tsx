@@ -165,38 +165,36 @@ function normalize(value: string) {
   return value.replace(/\s+/g, ' ').trim();
 }
 
+const nodeStates = new WeakMap<Text, { base: string; last: string }>();
+const attributeStates = new WeakMap<Element, Record<string, string>>();
+
 export const GlobalLanguage: React.FC<{ currentLang: LanguageCode }> = ({ currentLang }) => {
   useEffect(() => {
     const map = UI_TRANSLATIONS[currentLang] || {};
 
-    const states = new WeakMap<Text, { base: string; last: string }>();
-
     const translateNode = (node: Text) => {
       const raw = node.nodeValue ?? '';
-      const state = states.get(node);
-      const base = state && raw === state.last ? state.base : raw;
+      const state = nodeStates.get(node);
+      const base = state && raw === state.last ? state.base : (state ? state.base : raw);
       const clean = normalize(base);
       if (!clean) return;
-      const translated = map[clean];
-      if (!translated || translated === clean) {
-        states.set(node, { base, last: raw });
-        return;
-      }
+      const translated = map[clean] ?? clean;
       const leading = base.match(/^\s*/)?.[0] ?? '';
       const trailing = base.match(/\s*$/)?.[0] ?? '';
       const value = leading + translated + trailing;
-      node.nodeValue = value;
-      states.set(node, { base, last: value });
+      if (raw !== value) node.nodeValue = value;
+      nodeStates.set(node, { base, last: value });
     };
 
     const translateAttributes = (el: Element) => {
       for (const attr of ['placeholder','title','aria-label']) {
         const value = el.getAttribute(attr);
-        if (!value) continue;
-        const translated = map[normalize(value)];
-        if (translated && translated !== value) {
-          el.setAttribute(attr, translated);
-        }
+        if (value === null) continue;
+        const states = attributeStates.get(el) || {};
+        const base = states[attr] && value === states[`last_${attr}`] ? states[attr] : (states[attr] || value);
+        const translated = map[normalize(base)] ?? normalize(base);
+        if (value !== translated) el.setAttribute(attr, translated);
+        attributeStates.set(el, { ...states, [attr]: base, [`last_${attr}`]: translated });
       }
     };
 
