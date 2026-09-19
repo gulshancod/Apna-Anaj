@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import { connectMongoDB, getMongoDB, isMongoConnected } from "./server/db.js";
+import { registerUser, loginUser, getUserFromToken, logoutUser } from "./server/auth.js";
 
 dotenv.config();
 
@@ -409,6 +410,147 @@ function formatMarketData(records) {
   });
 
 }
+
+
+
+// =====================================
+// AUTHENTICATION
+// =====================================
+
+function getBearerToken(req) {
+  const header = String(req.headers.authorization || "");
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+}
+
+function requireMongo(req, res, next) {
+  if (!process.env.MONGODB_URI || !isMongoConnected()) {
+    return res.status(503).json({
+      success: false,
+      message: "Database is not connected. Configure MONGODB_URI on the backend."
+    });
+  }
+
+  next();
+}
+
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const {
+      role,
+      name,
+      phone,
+      email,
+      password,
+      farm,
+      location,
+      address
+    } = req.body || {};
+
+    if (!process.env.MONGODB_URI) {
+      return res.status(503).json({
+        success: false,
+        message: "MongoDB is not configured on the backend."
+      });
+    }
+
+    await connectMongoDB();
+
+    const session = await registerUser({
+      role,
+      name,
+      phone,
+      email,
+      password,
+      farm,
+      location,
+      address
+    });
+
+    return res.status(201).json({
+      success: true,
+      ...session
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+
+    const duplicate = /already exists/i.test(error.message);
+    return res.status(duplicate ? 409 : 400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { role, identifier, password } = req.body || {};
+
+    if (!process.env.MONGODB_URI) {
+      return res.status(503).json({
+        success: false,
+        message: "MongoDB is not configured on the backend."
+      });
+    }
+
+    await connectMongoDB();
+
+    const session = await loginUser(identifier, password, role);
+
+    return res.json({
+      success: true,
+      ...session
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+
+    return res.status(401).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+app.get("/api/auth/me", requireMongo, async (req, res) => {
+  try {
+    const user = await getUserFromToken(getBearerToken(req));
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please log in again."
+      });
+    }
+
+    return res.json({
+      success: true,
+      user
+    });
+  } catch (error) {
+    console.error("Session check error:", error);
+
+    return res.status(401).json({
+      success: false,
+      message: "Unable to restore your session."
+    });
+  }
+});
+
+app.post("/api/auth/logout", requireMongo, async (req, res) => {
+  try {
+    await logoutUser(getBearerToken(req));
+
+    return res.json({
+      success: true
+    });
+  } catch (error) {
+    console.error("Logout error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to log out."
+    });
+  }
+});
 
 
 // =====================================
