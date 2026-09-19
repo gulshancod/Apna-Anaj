@@ -535,7 +535,7 @@ export default function App() {
       </div>
 
       {/* Floating Bottom Cart Bar for mobile & fast checkout */}
-      {currentUser.role !== 'farmer' && cartItemCount > 0 && !isCartOpen && (
+      {currentUser.role === 'buyer' && cartItemCount > 0 && !isCartOpen && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-lg bg-[#1e5634] text-white p-3 sm:p-4 rounded-2xl shadow-2xl z-40 flex items-center justify-between gap-3 animate-slideUp border border-[#3b7e54]">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#f7c244] text-[#1f3427] flex items-center justify-center font-bold text-base">
@@ -560,14 +560,16 @@ export default function App() {
         </div>
       )}
 
-      {/* Cart Flyout Drawer */}
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cart={cart}
-        onUpdateCart={handleUpdateCart}
-        onCheckout={handleCheckout}
-      />
+      {/* Cart Flyout Drawer — Buyer only */}
+      {currentUser.role === 'buyer' && (
+        <CartDrawer
+          isOpen={isCartOpen}
+          onClose={() => setIsCartOpen(false)}
+          cart={cart}
+          onUpdateCart={handleUpdateCart}
+          onCheckout={handleCheckout}
+        />
+      )}
 
       {/* Quick Join / Signup Modal */}
       <JoinModal
