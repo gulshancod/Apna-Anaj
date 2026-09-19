@@ -64,3 +64,28 @@
   background: rgba(39, 107, 69, 0.45);
 }
 
+/* Reference-style desktop shell: wider content, compact whitespace */
+@media (min-width: 768px) {
+  aside.w-64 {
+    width: 354px;
+    max-width: 354px;
+  }
+
+  main.max-w-5xl {
+    max-width: none;
+    min-width: 0;
+    padding: 2.5rem 2.5rem 3rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  main.max-w-5xl {
+    padding: 2.75rem 2.75rem 3.25rem;
+  }
+}
+
+@media (max-width: 767px) {
+  main.max-w-5xl {
+    padding: 1rem;
+  }
+}
