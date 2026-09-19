@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { apiFetch } from '../lib/api';
 
 import {
   Lightbulb,
@@ -50,8 +51,7 @@ export const SellingRecommendation: React.FC<
         setLoading(true);
         setError("");
 
-        const response = await fetch(
-          `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(
+        const response = await apiFetch(`/api/market-summary?crop=${encodeURIComponent(
             crop
           )}`
         );
