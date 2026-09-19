@@ -1393,4 +1393,8 @@ async function startServer() {
   );
 }
 
-startServer();
+export { app };
+
+if (process.env.VERCEL !== "1") {
+  startServer();
+}
