@@ -138,17 +138,19 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </button>
 
-          {/* Cart Basket */}
-          <button
-            onClick={onOpenCart}
-            className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#1e5634] hover:bg-[#164327] text-white text-xs sm:text-sm font-bold shadow-md shadow-[#1e5634]/20 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
-            title="View Basket"
-          >
-            <ShoppingBasket className="w-4 h-4" />
-            <span className="font-semibold">{cartItemCount} Items</span>
-            <span className="text-white/60">•</span>
-            <span>₹{cartTotal}</span>
-          </button>
+          {/* Cart Basket — Buyer only */}
+          {currentUser.role !== 'farmer' && (
+            <button
+              onClick={onOpenCart}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#1e5634] hover:bg-[#164327] text-white text-xs sm:text-sm font-bold shadow-md shadow-[#1e5634]/20 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+              title="View Basket"
+            >
+              <ShoppingBasket className="w-4 h-4" />
+              <span className="font-semibold">{cartItemCount} Items</span>
+              <span className="text-white/60">•</span>
+              <span>₹{cartTotal}</span>
+            </button>
+          )}
 
           {/* Join / Role Trigger */}
           {currentUser.role === 'guest' ? (
