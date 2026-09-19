@@ -66,6 +66,14 @@
 
 /* Reference-style desktop shell: wider content, compact whitespace */
 @media (min-width: 768px) {
+  header .max-w-7xl {
+    max-width: none;
+  }
+
+  div.flex-1.flex.max-w-7xl.w-full.mx-auto {
+    max-width: none;
+  }
+
   aside.w-64 {
     width: 354px;
     max-width: 354px;
