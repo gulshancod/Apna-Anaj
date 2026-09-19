@@ -1,4 +1,6 @@
 import React from 'react';
+import { LanguageCode } from '../types';
+import { translations } from '../data/translations';
 import {
   PackageOpen,
   ArrowRight,
