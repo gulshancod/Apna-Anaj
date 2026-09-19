@@ -6,7 +6,7 @@ import { translations } from '../data/translations';
 interface FarmerRegistrationProps {
   currentLang: LanguageCode;
   onLanguageChange: (lang: LanguageCode) => void;
-  onSubmitFarmer: (data: { name: string; farm: string; location: string; phone: string }) => void;
+  onSubmitFarmer: (data: { name: string; farm: string; location: string; phone: string; password: string }) => void;
   onBack: () => void;
 }
 
@@ -16,10 +16,11 @@ export const FarmerRegistration: React.FC<FarmerRegistrationProps> = ({
   onSubmitFarmer,
   onBack
 }) => {
-  const [name, setName] = useState('Ramesh Kumar');
-  const [farm, setFarm] = useState('Green Valley Farm');
-  const [loc, setLoc] = useState('Pune, Maharashtra');
-  const [phone, setPhone] = useState('9876543210');
+  const [name, setName] = useState('');
+  const [farm, setFarm] = useState('');
+  const [loc, setLoc] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [isListening, setIsListening] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('Tap microphone to speak details');
 
@@ -35,9 +36,8 @@ export const FarmerRegistration: React.FC<FarmerRegistrationProps> = ({
         recognition.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
         recognition.onresult = (event: any) => {
           setVoiceStatus('✨ Voice Input Recorded!');
-          setName('Ramesh Kumar');
-          setFarm('Green Valley Farm');
-          setLoc('Pune, Maharashtra');
+          setVoiceStatus('✨ Voice Input Recorded!');
+          setIsListening(false);
           setIsListening(false);
         };
         recognition.onerror = () => {
@@ -65,7 +65,7 @@ export const FarmerRegistration: React.FC<FarmerRegistrationProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitFarmer({ name, farm, location: loc, phone });
+    onSubmitFarmer({ name, farm, location: loc, phone, password });
   };
 
   return (
@@ -141,6 +141,7 @@ export const FarmerRegistration: React.FC<FarmerRegistrationProps> = ({
             <input
               type="text"
               required
+              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Ramesh Kumar"
@@ -192,6 +193,22 @@ export const FarmerRegistration: React.FC<FarmerRegistrationProps> = ({
             </div>
           </div>
 
+
+          <div>
+            <label className="block text-xs font-bold text-[#20352b] dark:text-[#f4f8f5] mb-1">
+              Account Password
+            </label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 6 characters"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] bg-[#faf5e8] dark:bg-[#0e1a14] text-[#20352b] dark:text-[#f4f8f5] text-sm focus:outline-none focus:border-[#276b45]"
+            />
+          </div>
           <div>
             <label className="block text-xs font-bold text-[#20352b] dark:text-[#f4f8f5] mb-1">
               Preferred Language (पसंदीदा भाषा)
