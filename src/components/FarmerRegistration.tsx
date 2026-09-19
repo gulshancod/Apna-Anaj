@@ -34,10 +34,8 @@ export const FarmerRegistration: React.FC<FarmerRegistrationProps> = ({
       try {
         const recognition = new SpeechRecognition();
         recognition.lang = currentLang === 'hi' ? 'hi-IN' : 'en-US';
-        recognition.onresult = (event: any) => {
-          setVoiceStatus('✨ Voice Input Recorded!');
-          setVoiceStatus('✨ Voice Input Recorded!');
-          setIsListening(false);
+        recognition.onresult = () => {
+          setVoiceStatus('✨ Voice input captured. Please review the fields before submitting.');
           setIsListening(false);
         };
         recognition.onerror = () => {
@@ -54,13 +52,8 @@ export const FarmerRegistration: React.FC<FarmerRegistrationProps> = ({
   };
 
   const simulateVoice = () => {
-    setTimeout(() => {
-      setName('Ramesh Kumar');
-      setFarm('Green Valley Farm');
-      setLoc('Pune, Maharashtra');
-      setVoiceStatus('✨ Voice Recognized: Ramesh Kumar, Pune Farm');
-      setIsListening(false);
-    }, 1200);
+    setVoiceStatus('Voice input is not supported in this browser. Please enter your details manually.');
+    setIsListening(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
