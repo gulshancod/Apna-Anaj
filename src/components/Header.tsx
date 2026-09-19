@@ -139,7 +139,7 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
 
           {/* Cart Basket — Buyer only */}
-          {currentUser.role !== 'farmer' && (
+          {currentUser.role === 'buyer' && (
             <button
               onClick={onOpenCart}
               className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#1e5634] hover:bg-[#164327] text-white text-xs sm:text-sm font-bold shadow-md shadow-[#1e5634]/20 hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
