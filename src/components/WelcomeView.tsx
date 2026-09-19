@@ -213,7 +213,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
           {/* Farmer Choice Card */}
           <div 
             onClick={() => onSelectRole('farmer')}
-            className="p-6 sm:p-8 rounded-2xl border-2 border-[#e5dec9] dark:border-[#223f30] bg-white dark:bg-[#0e1a14] hover:border-[#1e5634] transition-all duration-200 cursor-pointer flex flex-col justify-between text-center group"
+            className="p-6 sm:p-8 rounded-2xl border-2 border-[#bed99f] dark:border-[#223f30] bg-[#e4f1cd] dark:bg-[#163824]/40 hover:border-[#1e5634] transition-all duration-200 cursor-pointer flex flex-col justify-between text-center group"
           >
             <div className="flex flex-col items-center">
               <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3 text-3xl group-hover:scale-110 transition-transform">
