@@ -227,7 +227,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({
               </p>
             </div>
 
-            <button className="mt-6 flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-white dark:bg-[#15271e] hover:bg-[#1e5634] hover:text-white border-2 border-[#1e5634] text-[#1e5634] dark:text-[#4ade80] text-sm font-bold shadow-sm transition-all cursor-pointer">
+            <button className="mt-6 flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#1e5634] hover:bg-[#164327] border-2 border-[#1e5634] text-white text-sm font-bold shadow-md shadow-[#1e5634]/20 transition-all cursor-pointer">
               <span>{t.btnFarmer}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
