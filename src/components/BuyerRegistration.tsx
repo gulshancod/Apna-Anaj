@@ -6,7 +6,7 @@ import { translations } from '../data/translations';
 interface BuyerRegistrationProps {
   currentLang: LanguageCode;
   onLanguageChange: (lang: LanguageCode) => void;
-  onSubmitBuyer: (data: { name: string; address: string; phone: string }) => void;
+  onSubmitBuyer: (data: { name: string; address: string; phone: string; password: string }) => void;
   onBack: () => void;
 }
 
@@ -16,13 +16,14 @@ export const BuyerRegistration: React.FC<BuyerRegistrationProps> = ({
   onSubmitBuyer,
   onBack
 }) => {
-  const [name, setName] = useState('Krish Kumar');
-  const [phone, setPhone] = useState('9625700458');
-  const [address, setAddress] = useState('Ghaziabad, Uttar Pradesh');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [address, setAddress] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmitBuyer({ name, address, phone });
+    onSubmitBuyer({ name, address, phone, password });
   };
 
   return (
@@ -52,6 +53,7 @@ export const BuyerRegistration: React.FC<BuyerRegistrationProps> = ({
             <input
               type="text"
               required
+              autoComplete="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Krish Kumar"
@@ -87,6 +89,22 @@ export const BuyerRegistration: React.FC<BuyerRegistrationProps> = ({
             />
           </div>
 
+
+          <div>
+            <label className="block text-xs font-bold text-[#20352b] dark:text-[#f4f8f5] mb-1">
+              Account Password
+            </label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 6 characters"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] bg-[#faf5e8] dark:bg-[#0e1a14] text-[#20352b] dark:text-[#f4f8f5] text-sm focus:outline-none focus:border-[#276b45]"
+            />
+          </div>
           <div>
             <label className="block text-xs font-bold text-[#20352b] dark:text-[#f4f8f5] mb-1">
               Preferred Language
