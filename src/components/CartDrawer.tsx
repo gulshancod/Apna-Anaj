@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { LanguageCode } from '../types';
+import { translations } from '../data/translations';
 import { X, Plus, Minus, Trash2, Zap, ArrowRight, ShieldCheck, Tag } from 'lucide-react';
 import { ProductItem } from '../types';
 
