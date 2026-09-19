@@ -1,5 +1,6 @@
 import express from "express";
 import dotenv from "dotenv";
+import { connectMongoDB, getMongoDB, isMongoConnected } from "./server/db.js";
 
 dotenv.config();
 
@@ -413,6 +414,39 @@ function formatMarketData(records) {
 // =====================================
 // TEST API
 // =====================================
+
+app.get("/api/db-test", async (req, res) => {
+  try {
+    if (!process.env.MONGODB_URI) {
+      return res.status(503).json({
+        success: false,
+        connected: false,
+        message: "MONGODB_URI is not configured on the backend."
+      });
+    }
+
+    await connectMongoDB();
+
+    const db = getMongoDB();
+    const ping = await db.command({ ping: 1 });
+
+    return res.json({
+      success: true,
+      connected: isMongoConnected(),
+      database: db.databaseName,
+      pingOk: ping.ok === 1
+    });
+  } catch (error) {
+    console.error("MongoDB health check error:", error);
+
+    return res.status(503).json({
+      success: false,
+      connected: false,
+      message: error.message
+    });
+  }
+});
+
 
 app.get(
   "/api/test",
@@ -1185,22 +1219,36 @@ app.get("/api/price-comparison", async (req, res) => {
 // START SERVER
 // =====================================
 
-app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-
-    console.log(
-      `Backend running on http://localhost:${PORT}`
-    );
-
-    console.log(
-      `Government API: ${
-        DATA_GOV_API_KEY
-          ? "CONNECTED"
-          : "NOT CONNECTED"
-      }`
-    );
-
+async function startServer() {
+  if (process.env.MONGODB_URI) {
+    try {
+      await connectMongoDB();
+      console.log(`MongoDB: CONNECTED (${getMongoDB().databaseName})`);
+    } catch (error) {
+      console.error("MongoDB connection failed:", error.message);
+      console.warn("Backend will continue running without MongoDB.");
+    }
+  } else {
+    console.warn("MongoDB: NOT CONFIGURED (set MONGODB_URI)");
   }
-);
+
+  app.listen(
+    PORT,
+    "0.0.0.0",
+    () => {
+      console.log(
+        `Backend running on http://localhost:${PORT}`
+      );
+
+      console.log(
+        `Government API: ${
+          DATA_GOV_API_KEY
+            ? "CONNECTED"
+            : "NOT CONNECTED"
+        }`
+      );
+    }
+  );
+}
+
+startServer();
