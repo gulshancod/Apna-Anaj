@@ -23,6 +23,8 @@ import { OrdersView } from './components/OrdersView';
 import { CartDrawer } from './components/CartDrawer';
 import { JoinModal } from './components/JoinModal';
 import { Toast } from './components/Toast';
+import { WorkflowStepper } from './components/WorkflowStepper';
+import { MobileNav } from './components/MobileNav';
 
 export default function App() {
   const [currentLang, setCurrentLang] = useState<LanguageCode>('en');
@@ -340,6 +342,21 @@ export default function App() {
     }
   };
 
+  const getFarmerWorkflowStep = () => {
+    switch (currentTab) {
+      case 'view-add-produce': return 1;
+      case 'view-demand-forecast': return 2;
+      case 'view-selling-rec': return 3;
+      case 'view-matching': return 4;
+      case 'view-pooling': return 5;
+      case 'view-route': return 6;
+      case 'view-transparency':
+      case 'view-orders': return 7;
+      case 'view-farmer-dash':
+      default: return 0;
+    }
+  };
+
   const handleCopyCoupon = (code: string) => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(code).catch(() => {});
@@ -372,7 +389,7 @@ export default function App() {
       />
 
       {/* App Shell Container */}
-      <div className="flex-1 flex max-w-7xl w-full mx-auto">
+      <div className="flex-1 flex w-full min-w-0">
         
         {/* Left Sidebar */}
         <Sidebar
@@ -382,8 +399,12 @@ export default function App() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-5xl overflow-hidden">
+        <main className="min-w-0 flex-1 w-full px-4 py-5 pb-24 sm:px-6 sm:py-6 md:pb-8 lg:px-8 xl:px-10 lg:py-9 overflow-hidden">
           
+          {currentUser.role === 'farmer' && (
+            <WorkflowStepper currentStep={getFarmerWorkflowStep()} />
+          )}
+
           {/* Welcome View */}
           {currentTab === 'view-welcome' && (
             <WelcomeView
@@ -577,6 +598,13 @@ export default function App() {
         initialRole={joinModalRole}
         onClose={() => setIsJoinModalOpen(false)}
         onConfirmJoin={handleConfirmJoin}
+      />
+
+      {/* Mobile navigation */}
+      <MobileNav
+        role={currentUser.role}
+        currentTab={currentTab}
+        onNavigate={setCurrentTab}
       />
 
       {/* Toast Feedback */}
