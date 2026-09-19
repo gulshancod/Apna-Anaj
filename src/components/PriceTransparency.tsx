@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { LanguageCode } from '../types';
+import { translations } from '../data/translations';
 import { apiFetch } from '../lib/api';
 import {
   ArrowLeft,
