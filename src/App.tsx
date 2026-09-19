@@ -37,10 +37,10 @@ export default function App() {
     address: string;
   }>({
     role: 'guest',
-    name: 'Guest',
-    farm: 'Green Valley Organic Farm',
-    location: 'Pune, Maharashtra',
-    address: 'Ghaziabad, Uttar Pradesh'
+    name: '',
+    farm: '',
+    location: '',
+    address: ''
   });
 
   const [currentTab, setCurrentTab] = useState<string>('view-welcome');
@@ -48,33 +48,16 @@ export default function App() {
   const [cart, setCart] = useState<Record<string, { product: ProductItem; qty: number }>>({});
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [farmerProduce, setFarmerProduce] = useState<FarmerProduce>({
-    crop: 'MP Sharbati Gehu',
-    hindiName: 'शरबती गेहूं',
-    qty: 500,
-    price: 48,
-    loc: 'Sehore, Madhya Pradesh',
-    harvestDate: '2026-09-02',
-    expiryDate: '2026-09-15'
+    crop: '',
+    hindiName: '',
+    qty: 0,
+    price: 0,
+    loc: '',
+    harvestDate: '',
+    expiryDate: ''
   });
 
-  const [orders, setOrders] = useState<OrderRecord[]>([
-    {
-      id: 'KD-4091',
-      role: 'buyer',
-      items: '1x MP Sharbati Gehu (1kg), 1x Desi Red Tomatoes (1kg)',
-      total: 80,
-      farmerPayout: 70,
-      time: '10:14 AM',
-      status: '🛵 Arriving in 11 mins',
-      deliveryMinutes: 11,
-      deliveryRider: {
-        name: 'Vikas Shinde',
-        vehicle: 'Electric EV Delivery Bike',
-        rating: 4.9,
-        phone: '+91 9876543210'
-      }
-    }
-  ]);
+  const [orders, setOrders] = useState<OrderRecord[]>([]);
 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
