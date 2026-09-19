@@ -1,5 +1,4 @@
 import crypto from "node:crypto";
-import { ObjectId } from "mongodb";
 import { getMongoDB } from "./db.js";
 
 const SESSION_DAYS = 30;
@@ -170,7 +169,7 @@ export async function getUserFromToken(token) {
   if (!session) return null;
 
   const user = await db.collection("users").findOne({
-    _id: new ObjectId(session.userId)
+    _id: session.userId
   });
 
   return user ? toPublicUser(user) : null;
