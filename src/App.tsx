@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { translations } from './data/translations';
+import { GlobalLanguage } from './components/GlobalLanguage';
 import confetti from 'canvas-confetti';
 import { UserRole, LanguageCode, ProductItem, FarmerProduce, OrderRecord } from './types';
 import { initialProducts } from './data/mockData';
@@ -443,7 +444,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fbf8ef] dark:bg-[#0d1a13] text-[#1f3427] dark:text-[#f4f8f5] transition-colors duration-200">
+    <>
+      <GlobalLanguage currentLang={currentLang} />
+      <div className="min-h-screen flex flex-col bg-[#fbf8ef] dark:bg-[#0d1a13] text-[#1f3427] dark:text-[#f4f8f5] transition-colors duration-200">
       
       {/* Top Mandi Rates Marquee */}
       <MandiTicker />
@@ -689,5 +692,6 @@ export default function App() {
       <Toast message={toastMsg} />
 
     </div>
+    </>
   );
 }
