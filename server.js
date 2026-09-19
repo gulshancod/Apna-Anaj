@@ -879,6 +879,113 @@ app.get(
 
 
 // =====================================
+// BATCH MARKET SUMMARY
+// =====================================
+
+app.get("/api/market-summary-batch", async (req, res) => {
+  try {
+    const raw = String(req.query.crops || "");
+    const crops = Array.from(
+      new Set(
+        raw
+          .split(",")
+          .map(normalize)
+          .filter(Boolean)
+      )
+    ).slice(0, 25);
+
+    if (!crops.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one crop is required."
+      });
+    }
+
+    const entries = await Promise.all(
+      crops.map(async (crop) => {
+        try {
+          const records = await fetchGovernmentData(crop);
+
+          if (records.length > 0) {
+            const marketData = formatMarketData(records);
+            const prices = marketData
+              .map((row) => Number(row.modalPrice))
+              .filter((price) => Number.isFinite(price) && price >= 100);
+
+            if (prices.length > 0) {
+              const markets = new Set(
+                marketData.map((row) => row.market).filter(Boolean)
+              );
+
+              const average = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+              const lowest = Math.min(...prices);
+              const highest = Math.max(...prices);
+
+              return [crop, {
+                success: true,
+                availableData: true,
+                isDemoData: false,
+                source: "Government of India - AGMARKNET",
+                sourceType: "Live Government API",
+                markets: markets.size,
+                records: prices.length,
+                averageModalPricePerKg: Number((average / 100).toFixed(2)),
+                lowestModalPricePerKg: Number((lowest / 100).toFixed(2)),
+                highestModalPricePerKg: Number((highest / 100).toFixed(2))
+              }];
+            }
+          }
+
+          if (DEMO_MARKET_DATA[crop]) {
+            const demo = DEMO_MARKET_DATA[crop];
+            return [crop, {
+              success: true,
+              availableData: true,
+              isDemoData: true,
+              source: "ApnaAnaj Demo Reference Data",
+              sourceType: "Demo",
+              markets: 0,
+              records: 1,
+              averageModalPricePerKg: demo.average,
+              lowestModalPricePerKg: demo.lowest,
+              highestModalPricePerKg: demo.highest
+            }];
+          }
+
+          return [crop, {
+            success: false,
+            availableData: false,
+            isDemoData: false,
+            message: "No government mandi data found for this crop."
+          }];
+        } catch (error) {
+          return [crop, {
+            success: false,
+            availableData: false,
+            isDemoData: false,
+            message: error.message
+          }];
+        }
+      })
+    );
+
+    return res.json({
+      success: true,
+      requested: crops.length,
+      data: Object.fromEntries(entries)
+    });
+  } catch (error) {
+    console.error("Batch market summary error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+
+// =====================================
 // PRICE COMPARISON
 // =====================================
 
