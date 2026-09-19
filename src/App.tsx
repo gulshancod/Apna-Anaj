@@ -25,6 +25,7 @@ import { JoinModal } from './components/JoinModal';
 import { Toast } from './components/Toast';
 import { WorkflowStepper } from './components/WorkflowStepper';
 import { MobileNav } from './components/MobileNav';
+import { getCurrentUser, loginUser, logoutUser, registerUser } from './lib/auth';
 
 export default function App() {
   const [currentLang, setCurrentLang] = useState<LanguageCode>('en');
@@ -92,6 +93,27 @@ export default function App() {
     }
   }, [isDarkMode]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    getCurrentUser().then((user) => {
+      if (cancelled || !user) return;
+
+      setCurrentUser({
+        role: user.role,
+        name: user.name,
+        farm: user.farm,
+        location: user.location,
+        address: user.address
+      });
+      setCurrentTab(user.role === 'farmer' ? 'view-farmer-dash' : 'view-buyer-store');
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 3000);
@@ -153,56 +175,90 @@ export default function App() {
     }
   };
 
-  const handleSubmitFarmerReg = (data: { name: string; farm: string; location: string; phone: string }) => {
-    setCurrentUser({
+  const handleSubmitFarmerReg = (data: {
+    name: string;
+    farm: string;
+    location: string;
+    phone: string;
+    password: string;
+  }) => {
+    void registerUser({
       role: 'farmer',
       name: data.name,
+      phone: data.phone,
+      password: data.password,
       farm: data.farm,
       location: data.location,
       address: data.location
-    });
-    setFarmerProduce(prev => ({ ...prev, loc: data.location }));
-    showToast(`Welcome ${data.name}! Farmer dashboard is ready.`);
-    setCurrentTab('view-farmer-dash');
+    })
+      .then((user) => {
+        setCurrentUser({
+          role: user.role,
+          name: user.name,
+          farm: user.farm,
+          location: user.location,
+          address: user.address
+        });
+        setFarmerProduce(prev => ({ ...prev, loc: data.location }));
+        showToast(`Welcome ${user.name}! Your farmer account is ready.`);
+        setCurrentTab('view-farmer-dash');
+      })
+      .catch((error) => {
+        showToast(error instanceof Error ? error.message : 'Registration failed.');
+      });
   };
 
-  const handleSubmitBuyerReg = (data: { name: string; address: string; phone: string }) => {
-    setCurrentUser({
+  const handleSubmitBuyerReg = (data: {
+    name: string;
+    address: string;
+    phone: string;
+    password: string;
+  }) => {
+    void registerUser({
       role: 'buyer',
       name: data.name,
-      farm: '',
-      location: data.address,
-      address: data.address
-    });
-    showToast(`Welcome ${data.name}! Fresh store is ready for 15-min delivery.`);
-    setCurrentTab('view-buyer-store');
+      phone: data.phone,
+      password: data.password,
+      address: data.address,
+      location: data.address
+    })
+      .then((user) => {
+        setCurrentUser({
+          role: user.role,
+          name: user.name,
+          farm: user.farm,
+          location: user.location,
+          address: user.address
+        });
+        showToast(`Welcome ${user.name}! Your fresh store is ready.`);
+        setCurrentTab('view-buyer-store');
+      })
+      .catch((error) => {
+        showToast(error instanceof Error ? error.message : 'Registration failed.');
+      });
   };
 
-  const handleLogin = (role: 'buyer' | 'farmer', name: string) => {
-    if (role === 'farmer') {
-      setCurrentUser({
-        role: 'farmer',
-        name,
-        farm: 'Green Valley Organic Farm',
-        location: 'Pune, Maharashtra',
-        address: 'Pune, Maharashtra'
-      });
-      showToast(`Logged in as Farmer ${name}`);
-      setCurrentTab('view-farmer-dash');
-    } else {
-      setCurrentUser({
-        role: 'buyer',
-        name,
-        farm: '',
-        location: 'Ghaziabad, Uttar Pradesh',
-        address: 'Ghaziabad, Uttar Pradesh'
-      });
-      showToast(`Logged in as Buyer ${name}`);
-      setCurrentTab('view-buyer-store');
-    }
+  const handleLogin = async (
+    role: 'buyer' | 'farmer',
+    identifier: string,
+    password: string
+  ) => {
+    const user = await loginUser(role, identifier, password);
+
+    setCurrentUser({
+      role: user.role,
+      name: user.name,
+      farm: user.farm,
+      location: user.location,
+      address: user.address
+    });
+
+    showToast(`Welcome back, ${user.name}!`);
+    setCurrentTab(user.role === 'farmer' ? 'view-farmer-dash' : 'view-buyer-store');
   };
 
   const handleLogout = () => {
+    void logoutUser();
     setCurrentUser({
       role: 'guest',
       name: 'Guest',
