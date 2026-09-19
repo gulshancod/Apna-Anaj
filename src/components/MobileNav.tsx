@@ -22,15 +22,14 @@ export const MobileNav: React.FC<MobileNavProps> = ({ role, currentTab, onNaviga
         { id: 'view-buyer-store', label: 'Market', icon: Store },
         { id: 'view-buyer-tracking', label: 'Track', icon: Bike },
         { id: 'view-orders', label: 'Orders', icon: History },
-        { id: 'view-buyer-store', label: 'Shop', icon: Store },
       ];
 
   return (
     <nav className="fixed bottom-3 left-3 right-3 z-[70] md:hidden rounded-2xl border border-white/60 dark:border-[#294536] bg-white/95 dark:bg-[#102219]/95 shadow-[0_18px_40px_rgba(15,35,24,0.18)] backdrop-blur-xl px-2 py-2">
-      <div className="grid grid-cols-4 gap-1">
+      <div className={`grid gap-1 ${role === "farmer" ? "grid-cols-4" : "grid-cols-3"}`}>
         {items.map((item, index) => {
           const Icon = item.icon;
-          const active = currentTab === item.id || (role === 'buyer' && index === 3 && currentTab === 'view-buyer-store');
+          const active = currentTab === item.id;
           return (
             <button
               key={`${item.id}-${index}`}
