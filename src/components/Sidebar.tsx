@@ -33,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser
 }) => {
   return (
-    <aside className="hidden md:flex flex-col w-64 shrink-0 bg-[#fbf8ef] dark:bg-[#15271e] border-r border-[#e5dec9] dark:border-[#223f30] p-4 sticky top-[61px] h-[calc(100vh-61px)] overflow-y-auto z-30 transition-colors">
+    <aside className="hidden md:flex flex-col w-[286px] xl:w-[310px] shrink-0 bg-[#fbf8ef] dark:bg-[#15271e] border-r border-[#e5dec9] dark:border-[#223f30] px-4 py-5 sticky top-[61px] h-[calc(100vh-61px)] overflow-y-auto z-30 transition-colors">
       
       {/* Guest Mode Navigation */}
       {currentUser.role === 'guest' && (
@@ -44,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           
           <button
             onClick={() => onTabChange('view-welcome')}
-            className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
+            className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all duration-200 text-left cursor-pointer hover:translate-x-0.5 ${
               currentTab === 'view-welcome'
                 ? 'bg-[#e4f1cd] dark:bg-[#163824] text-[#1e5634] dark:text-[#4ade80] border border-[#bed99f] dark:border-[#223f30]'
                 : 'text-[#5e7164] dark:text-[#9ab0a2] hover:bg-[#e4f1cd]/60 hover:text-[#1e5634]'

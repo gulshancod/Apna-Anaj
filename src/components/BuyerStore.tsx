@@ -78,30 +78,53 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
       setMandiLoading(true);
       const nextPrices: Record<string, number | null> = {};
 
-      await Promise.all(
-        products.map(async (product) => {
-          const crop = getMandiCropName(product.name);
+      try {
+        const productCrops = products.map((product) => ({
+          id: product.id,
+          crop: getMandiCropName(product.name)
+        }));
 
-          if (crop === 'milk') {
-            nextPrices[product.id] = null;
-            return;
+        productCrops
+          .filter(({ crop }) => crop === 'milk')
+          .forEach(({ id }) => {
+            nextPrices[id] = null;
+          });
+
+        const crops = Array.from(
+          new Set(
+            productCrops
+              .map(({ crop }) => crop)
+              .filter((crop) => crop !== 'milk')
+          )
+        );
+
+        if (crops.length > 0) {
+          const response = await apiFetch(
+            `/api/market-summary-batch?crops=${encodeURIComponent(crops.join(','))}`
+          );
+
+          if (!response.ok) {
+            throw new Error('Batch mandi request failed');
           }
 
-          try {
-            const response = await apiFetch(`/api/market-summary?crop=${encodeURIComponent(crop)}`
-            );
-            const result = await response.json();
+          const result = await response.json();
+          const marketData = result?.data || {};
 
-            if (response.ok && result.success && result.availableData) {
-              nextPrices[product.id] = Number(result.averageModalPricePerKg);
-            } else {
-              nextPrices[product.id] = null;
-            }
-          } catch {
+          productCrops.forEach(({ id, crop }) => {
+            const value = marketData?.[crop]?.averageModalPricePerKg;
+            nextPrices[id] =
+              typeof value === 'number' && Number.isFinite(value)
+                ? value
+                : null;
+          });
+        }
+      } catch {
+        products.forEach((product) => {
+          if (!(product.id in nextPrices)) {
             nextPrices[product.id] = null;
           }
-        })
-      );
+        });
+      }
 
       if (!cancelled) {
         setMandiPrices(nextPrices);
@@ -262,6 +285,9 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     alt={prod.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
+                  {mandiLoading && (
+                    <div className="pointer-events-none absolute inset-0 skeleton" aria-hidden="true" />
+                  )}
                   
                   {/* Farm Tag */}
                   <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/65 backdrop-blur-md text-white text-[10px] font-extrabold flex items-center gap-1">
@@ -315,7 +341,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     <div>
                       <div className="font-heading font-bold text-lg text-[#1e5634] dark:text-[#4ade80] leading-none">
                         {mandiLoading ? (
-                          <span className="text-sm">₹{prod.price}/kg</span>
+                          <span className="inline-block h-5 w-20 rounded-md skeleton align-middle" aria-label="Loading price" />
                         ) : (
                           <>₹{displayedPrice.toFixed(2)}<span className="text-[10px] font-normal ml-1">/kg</span></>
                         )}

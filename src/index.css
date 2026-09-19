@@ -97,3 +97,143 @@
     padding: 1rem;
   }
 }
+
+
+/* Premium UI system */
+:root {
+  --aa-green: #276b45;
+  --aa-green-deep: #1e5634;
+  --aa-green-soft: #e4f1cd;
+  --aa-cream: #fbf8ef;
+  --aa-border: #dfe7df;
+  --aa-muted: #6d7e73;
+  --aa-yellow: #f7c244;
+}
+
+.premium-card {
+  border: 1px solid #dfe7df;
+  border-radius: 1.5rem;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 12px 35px rgba(31,52,39,0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.premium-card:hover {
+  transform: translateY(-1px);
+  border-color: #c8d9c6;
+  box-shadow: 0 18px 42px rgba(31,52,39,0.09);
+}
+
+html.dark .premium-card {
+  background: rgba(21,39,30,0.92);
+  border-color: #223f30;
+}
+
+.premium-soft-card {
+  border: 1px solid #dfe7df;
+  border-radius: 1rem;
+  padding: 1rem;
+  background: #fbfdf9;
+  transition: all 160ms ease;
+}
+
+.premium-soft-card:hover {
+  border-color: #a9c7a8;
+  background: #f3f9ef;
+  transform: translateY(-1px);
+}
+
+html.dark .premium-soft-card {
+  background: #15271e;
+  border-color: #2a4335;
+}
+
+html.dark .premium-soft-card:hover {
+  background: #173023;
+}
+
+.premium-label {
+  color: #7a887e;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+html.dark .premium-label {
+  color: #9ab0a2;
+}
+
+.premium-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 160ms ease;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #edf2ed;
+}
+
+html.dark .skeleton {
+  background: #20362a;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.65),
+    transparent
+  );
+  animation: skeleton-shimmer 1.35s infinite;
+}
+
+html.dark .skeleton::after {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,0.08),
+    transparent
+  );
+}
+
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fade-in-up 420ms ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 78px;
+  }
+}
