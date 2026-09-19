@@ -6,7 +6,7 @@ interface JoinModalProps {
   isOpen: boolean;
   initialRole: 'buyer' | 'farmer';
   onClose: () => void;
-  onConfirmJoin: (role: 'buyer' | 'farmer', name: string, phone: string) => void;
+  onConfirmJoin: (role: 'buyer' | 'farmer', name: string, phone: string, password: string) => void;
 }
 
 export const JoinModal: React.FC<JoinModalProps> = ({
@@ -16,14 +16,15 @@ export const JoinModal: React.FC<JoinModalProps> = ({
   onConfirmJoin
 }) => {
   const [role, setRole] = useState<'buyer' | 'farmer'>(initialRole || 'buyer');
-  const [name, setName] = useState(initialRole === 'farmer' ? 'Ramesh Kumar' : 'Krish Kumar');
-  const [phone, setPhone] = useState('9876543210');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onConfirmJoin(role, name || (role === 'farmer' ? 'Ramesh Kumar' : 'Krish Kumar'), phone);
+    onConfirmJoin(role, name.trim(), phone, password);
   };
 
   return (
@@ -111,6 +112,22 @@ export const JoinModal: React.FC<JoinModalProps> = ({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+91 98765 43210"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] bg-white dark:bg-[#15271e] text-[#20352b] dark:text-[#f4f8f5] text-xs focus:outline-none focus:border-[#276b45]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#20352b] dark:text-[#f4f8f5] mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 6 characters"
               className="w-full px-3.5 py-2.5 rounded-xl border border-[#dfe7df] dark:border-[#223f30] bg-white dark:bg-[#15271e] text-[#20352b] dark:text-[#f4f8f5] text-xs focus:outline-none focus:border-[#276b45]"
             />
           </div>
