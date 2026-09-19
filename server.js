@@ -8,21 +8,32 @@ const app = express();
 app.use(express.json());
 
 app.use((req, res, next) => {
-  const allowedOrigins = [
-    "http://localhost:3000",
-    "https://apna-anaj.vercel.app"
-  ];
+  const origin = req.headers.origin || "";
 
-  const origin = req.headers.origin;
+  const isAllowedOrigin =
+    origin === "http://localhost:3000" ||
+    origin === "http://localhost:5173" ||
+    origin === "https://apna-anaj.vercel.app" ||
+    /^https:\/\/[^/]+-gulshancod\.vercel\.app$/.test(origin);
 
-  if (allowedOrigins.includes(origin)) {
+  if (isAllowedOrigin) {
     res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
   }
 
   res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept"
   );
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+  res.header("Access-Control-Max-Age", "86400");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
 
   next();
 });
