@@ -286,6 +286,9 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     alt={prod.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
+                  {mandiLoading && (
+                    <div className="absolute inset-0 skeleton" aria-hidden="true" />
+                  )}
                   
                   {/* Farm Tag */}
                   <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/65 backdrop-blur-md text-white text-[10px] font-extrabold flex items-center gap-1">
@@ -339,7 +342,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     <div>
                       <div className="font-heading font-bold text-lg text-[#1e5634] dark:text-[#4ade80] leading-none">
                         {mandiLoading ? (
-                          <span className="text-sm">₹{prod.price}/kg</span>
+                          <span className="inline-block h-5 w-20 rounded-md skeleton align-middle" aria-label="Loading price" />
                         ) : (
                           <>₹{displayedPrice.toFixed(2)}<span className="text-[10px] font-normal ml-1">/kg</span></>
                         )}
