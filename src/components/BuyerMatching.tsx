@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
 import {
   Handshake,
   ArrowLeft,
@@ -34,8 +35,7 @@ export const BuyerMatching: React.FC<BuyerMatchingProps> = ({
       .trim() || produce.crop.trim();
 
   useEffect(() => {
-    fetch(
-      `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(crop)}`
+    apiFetch(`/api/market-summary?crop=${encodeURIComponent(crop)}`
     )
       .then((res) => res.json())
       .then((data) => {
