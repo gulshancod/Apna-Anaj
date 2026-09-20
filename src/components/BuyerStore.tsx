@@ -77,31 +77,53 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
       setMandiLoading(true);
       const nextPrices: Record<string, number | null> = {};
 
-      await Promise.all(
-        products.map(async (product) => {
-          const crop = getMandiCropName(product.name);
+      try {
+        const productCrops = products.map((product) => ({
+          id: product.id,
+          crop: getMandiCropName(product.name)
+        }));
 
-          if (crop === 'milk') {
-            nextPrices[product.id] = null;
-            return;
+        productCrops
+          .filter(({ crop }) => crop === 'milk')
+          .forEach(({ id }) => {
+            nextPrices[id] = null;
+          });
+
+        const crops = Array.from(
+          new Set(
+            productCrops
+              .map(({ crop }) => crop)
+              .filter((crop) => crop !== 'milk')
+          )
+        );
+
+        if (crops.length > 0) {
+          const response = await fetch(
+            `https://apna-anaj-backend.onrender.com/api/market-summary-batch?crops=${encodeURIComponent(crops.join(','))}`
+          );
+
+          if (!response.ok) {
+            throw new Error('Batch mandi request failed');
           }
 
-          try {
-            const response = await fetch(
-              `https://apna-anaj-backend.onrender.com/api/market-summary?crop=${encodeURIComponent(crop)}`
-            );
-            const result = await response.json();
+          const result = await response.json();
+          const marketData = result?.data || {};
 
-            if (response.ok && result.success && result.availableData) {
-              nextPrices[product.id] = Number(result.averageModalPricePerKg);
-            } else {
-              nextPrices[product.id] = null;
-            }
-          } catch {
+          productCrops.forEach(({ id, crop }) => {
+            const value = Number(marketData?.[crop]?.averageModalPricePerKg);
+            nextPrices[id] =
+              Number.isFinite(value) && value > 0
+                ? value
+                : null;
+          });
+        }
+      } catch {
+        products.forEach((product) => {
+          if (!(product.id in nextPrices)) {
             nextPrices[product.id] = null;
           }
-        })
-      );
+        });
+      }
 
       if (!cancelled) {
         setMandiPrices(nextPrices);
