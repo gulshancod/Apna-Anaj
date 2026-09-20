@@ -28,6 +28,7 @@ import { Toast } from './components/Toast';
 import { WorkflowStepper } from './components/WorkflowStepper';
 import { MobileNav } from './components/MobileNav';
 import { getCurrentUser, loginUser, logoutUser, registerUser } from './lib/auth';
+import { AIAssistant } from './components/AIAssistant';
 
 export default function App() {
   const [currentLang, setCurrentLang] = useState<LanguageCode>(() => {
@@ -690,6 +691,7 @@ export default function App() {
 
       {/* Toast Feedback */}
       <Toast message={toastMsg} />
+      <AIAssistant currentLang={currentLang} currentPage={currentTab} />
 
     </div>
     </>
