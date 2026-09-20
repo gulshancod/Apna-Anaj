@@ -17,17 +17,21 @@ function recognitionFactory(): any {
 }
 
 const welcomeByLanguage: Record<LanguageCode, string> = {
-  en: 'Hello! I am Apna Anaj AI. Ask me anything about this page or the Apna Anaj workflow.',
-  hinglish: 'Namaste! Main Apna Anaj AI hoon. Is page ya poore Apna Anaj workflow ke baare mein kuch bhi poochho.',
-  hi: 'नमस्ते! मैं Apna Anaj AI हूँ। इस पेज या पूरे Apna Anaj workflow के बारे में कुछ भी पूछिए।',
-  mr: 'नमस्कार! मी Apna Anaj AI आहे. या पेजबद्दल किंवा संपूर्ण workflow बद्दल विचारा.',
-  pa: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ Apna Anaj AI ਹਾਂ। ਇਸ ਪੇਜ ਜਾਂ ਪੂਰੇ workflow ਬਾਰੇ ਪੁੱਛੋ.',
-  gu: 'નમસ્તે! હું Apna Anaj AI છું. આ પેજ અથવા સમગ્ર workflow વિશે પૂછો.',
-  bn: 'নমস্কার! আমি Apna Anaj AI। এই পেজ বা পুরো workflow সম্পর্কে জিজ্ঞেস করুন.',
-  te: 'నమస్తే! నేను Apna Anaj AI. ఈ పేజీ లేదా మొత్తం workflow గురించి అడగండి.',
-  ta: 'வணக்கம்! நான் Apna Anaj AI. இந்தப் பக்கம் அல்லது முழு workflow பற்றி கேளுங்கள்.',
-  kn: 'ನಮಸ್ಕಾರ! ನಾನು Apna Anaj AI. ಈ ಪುಟ ಅಥವಾ ಸಂಪೂರ್ಣ workflow ಬಗ್ಗೆ ಕೇಳಿ.'
+  en: 'नमस्ते! मैं Apna Anaj AI हूँ। आप मुझसे किसी भी विषय या Apna Anaj के फीचर के बारे में पूछ सकते हैं।',
+  hinglish: 'Namaste! Main Apna Anaj AI hoon. Aap mujhse kisi bhi topic ya Apna Anaj feature ke baare mein pooch sakte ho.',
+  hi: 'नमस्ते! मैं Apna Anaj AI हूँ। आप मुझसे किसी भी विषय या Apna Anaj के फीचर के बारे में पूछ सकते हैं।',
+  mr: 'नमस्कार! मी Apna Anaj AI आहे. तुम्ही कोणत्याही विषयाबद्दल किंवा फीचरबद्दल विचारू शकता.',
+  pa: 'ਸਤ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ Apna Anaj AI ਹਾਂ। ਤੁਸੀਂ ਕਿਸੇ ਵੀ ਵਿਸ਼ੇ ਜਾਂ ਫੀਚਰ ਬਾਰੇ ਪੁੱਛ ਸਕਦੇ ਹੋ।',
+  gu: 'નમસ્તે! હું Apna Anaj AI છું. તમે કોઈપણ વિષય અથવા ફીચર વિશે પૂછી શકો છો.',
+  bn: 'নমস্কার! আমি Apna Anaj AI। আপনি যেকোনো বিষয় বা ফিচার সম্পর্কে জিজ্ঞেস করতে পারেন।',
+  te: 'నమస్తే! నేను Apna Anaj AI. మీరు ఏదైనా విషయం లేదా ఫీచర్ గురించి అడగవచ్చు.',
+  ta: 'வணக்கம்! நான் Apna Anaj AI. நீங்கள் எந்த தலைப்பு அல்லது அம்சத்தைப் பற்றியும் கேட்கலாம்.',
+  kn: 'ನಮಸ್ಕಾರ! ನಾನು Apna Anaj AI. ನೀವು ಯಾವುದೇ ವಿಷಯ ಅಥವಾ ಫೀಚರ್ ಬಗ್ಗೆ ಕೇಳಬಹುದು.'
 };
+
+function getConversationLanguage(currentLang: LanguageCode): LanguageCode {
+  return currentLang === 'en' ? 'hi' : currentLang;
+}
 
 export const AIAssistant: React.FC<Props> = ({ currentLang, currentPage }) => {
   const [open,setOpen]=useState(false);
@@ -38,41 +42,37 @@ export const AIAssistant: React.FC<Props> = ({ currentLang, currentPage }) => {
   const [voiceOn,setVoiceOn]=useState(true);
   const [lastProvider,setLastProvider]=useState('');
   const recognitionRef=useRef<any>(null);
+  const conversationLanguage = getConversationLanguage(currentLang);
 
   useEffect(()=>()=>{ recognitionRef.current?.stop(); window.speechSynthesis?.cancel(); },[]);
 
   useEffect(()=>{
     if(open && messages.length===0){
-      setMessages([{role:'assistant',text:welcomeByLanguage[currentLang]}]);
+      setMessages([{role:'assistant',text:welcomeByLanguage[conversationLanguage]}]);
     }
-  },[open,currentLang,messages.length]);
+  },[open,conversationLanguage,messages.length]);
 
   const speak=(text:string)=>{
     if(!voiceOn || !('speechSynthesis' in window)) return;
     const synth=window.speechSynthesis;
     synth.cancel();
-
     const u=new SpeechSynthesisUtterance(text);
-    u.lang=localeMap[currentLang];
-    u.rate=currentLang==='hi' || currentLang==='hinglish' ? 0.92 : 0.98;
+    u.lang=localeMap[conversationLanguage];
+    u.rate=conversationLanguage==='hi' || conversationLanguage==='hinglish' ? 0.92 : 0.98;
     u.pitch=1.05;
     u.volume=1;
-
     const voices=synth.getVoices();
-    const locale=localeMap[currentLang].toLowerCase();
+    const locale=localeMap[conversationLanguage].toLowerCase();
     const preferred=voices.find((voice)=>{
       const name=voice.name.toLowerCase();
       const lang=voice.lang.toLowerCase();
       return lang===locale && /female|zira|google hindi|heera|veena|lekha|sangeeta|kalpana|aarti|neerja/.test(name);
     }) || voices.find((voice)=>voice.lang?.toLowerCase()===locale);
-
     if(preferred) u.voice=preferred;
     synth.speak(u);
   };
 
-  useEffect(()=>{
-    window.speechSynthesis?.getVoices();
-  },[]);
+  useEffect(()=>{ window.speechSynthesis?.getVoices(); },[]);
 
   const send=async(textOverride?:string)=>{
     const text=(textOverride ?? input).trim();
@@ -81,7 +81,7 @@ export const AIAssistant: React.FC<Props> = ({ currentLang, currentPage }) => {
     setInput('');
     setLoading(true);
     try {
-      const result=await askAssistant(text,currentPage,currentLang);
+      const result=await askAssistant(text,currentPage,conversationLanguage);
       setLastProvider(result.provider || 'ai');
       setMessages(m=>[...m,{role:'assistant',text:result.answer}]);
       speak(result.answer);
@@ -96,10 +96,10 @@ export const AIAssistant: React.FC<Props> = ({ currentLang, currentPage }) => {
     if(listening){ recognitionRef.current?.stop(); return; }
     const r=recognitionFactory();
     if(!r){
-      setMessages(m=>[...m,{role:'assistant',text:'Voice input is not supported in this browser. You can type your question.'}]);
+      setMessages(m=>[...m,{role:'assistant',text:'इस ब्राउज़र में voice input उपलब्ध नहीं है। कृपया अपना सवाल टाइप करें।'}]);
       return;
     }
-    r.lang=localeMap[currentLang];
+    r.lang=localeMap[conversationLanguage];
     r.continuous=false;
     r.interimResults=false;
     r.maxAlternatives=1;
@@ -113,7 +113,7 @@ export const AIAssistant: React.FC<Props> = ({ currentLang, currentPage }) => {
       setListening(false);recognitionRef.current=null;
       const code=String(e?.error||'');
       if(code!=='aborted' && code!=='no-speech'){
-        setMessages(m=>[...m,{role:'assistant',text:'Mic access or voice recognition failed. Please allow microphone permission and try again.'}]);
+        setMessages(m=>[...m,{role:'assistant',text:'Mic access या voice recognition में समस्या हुई। Microphone permission allow करके फिर प्रयास करें।'}]);
       }
     };
     recognitionRef.current=r; setListening(true);
@@ -133,10 +133,10 @@ export const AIAssistant: React.FC<Props> = ({ currentLang, currentPage }) => {
       </div>
       <div className='max-h-[46vh] min-h-[220px] overflow-y-auto p-3 space-y-2'>
         {messages.map((m,i)=><div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}><div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${m.role==='user'?'bg-[#1e5634] text-white':'bg-[#eef6ef] dark:bg-[#1d3427] text-[#1f3427] dark:text-[#f4f8f5]'}`}>{m.text}</div></div>)}
-        {loading && <div className='flex items-center gap-2 text-xs text-[#5e7164] px-2'><span className='w-2 h-2 rounded-full bg-[#1e5634] animate-pulse'/>Thinking…</div>}
+        {loading && <div className='flex items-center gap-2 text-xs text-[#5e7164] px-2'><span className='w-2 h-2 rounded-full bg-[#1e5634] animate-pulse'/>सोच रही हूँ…</div>}
       </div>
       <div className='px-3 pb-2 flex items-center justify-between text-[10px] text-[#6f8275]'>
-        <span>{lastProvider ? `${lastProvider === 'openai-web' ? 'OpenAI + Web' : lastProvider ? lastProvider : 'AI'}` : 'Hindi-first AI • Web-aware answers'}</span>
+        <span>{lastProvider ? `${lastProvider === 'openai-web' ? 'OpenAI + Web' : lastProvider}` : 'Hindi-first AI • Web-aware answers'}</span>
         <button onClick={()=>setMessages([])} className='underline hover:no-underline'>Clear</button>
       </div>
       <div className='p-3 border-t border-[#e5dec9] dark:border-[#294634]'>
