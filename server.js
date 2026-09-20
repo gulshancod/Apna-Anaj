@@ -474,7 +474,7 @@ async function callOpenAIWebAssistant(message, page, language) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
 
-  const model = process.env.OPENAI_MODEL || "gpt-5.6-luna";
+  const model = process.env.OPENAI_MODEL || "gpt-5";
   const input = buildAssistantSystemPrompt(message, page, language);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -496,18 +496,16 @@ async function callOpenAIWebAssistant(message, page, language) {
     throw new Error(data?.error?.message || "OpenAI request failed.");
   }
 
+  const parts = Array.isArray(data?.output)
+    ? data.output.flatMap((item) => Array.isArray(item?.content) ? item.content : [])
+    : [];
+
   const answer =
-    data?.output_text ||
-    data?.output?.flatMap((item) => item?.content || [])
-      ?.map((item) => item?.text || "")
-      ?.join("")
-      ?.trim();
+    String(data?.output_text || "").trim() ||
+    parts.map((item) => String(item?.text || "")).join("").trim();
 
-  if (!answer) {
-    throw new Error("OpenAI returned an empty answer.");
-  }
-
-  return answer.trim();
+  if (!answer) throw new Error("OpenAI returned an empty answer.");
+  return answer;
 }
 
 async function callGeminiAssistant(message, page, language) {
