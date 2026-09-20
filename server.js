@@ -77,8 +77,10 @@ const DEMO_MARKET_DATA = {
   }
 };
 
-const GOV_CACHE_TTL_MS = 5 * 60 * 1000;
+const GOV_CACHE_TTL_MS = 15 * 60 * 1000;
+const GOV_REQUEST_GAP_MS = 800;
 const govCache = new Map();
+const govInflight = new Map();
 
 function normalize(value) {
   return String(value || "").trim().toLowerCase();
@@ -137,81 +139,99 @@ async function fetchGovernmentData(crop) {
     return cached.records;
   }
 
+  const existingRequest = govInflight.get(cacheKey);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
   if (!DATA_GOV_API_KEY) {
     throw new Error("DATA_GOV_API_KEY missing in .env");
   }
 
-  const cropNames = getCropNames(crop);
-  let allRecords = [];
+  const requestPromise = (async () => {
+    const cropNames = getCropNames(crop);
+    let allRecords = [];
 
-  for (const cropName of cropNames) {
-    const params = new URLSearchParams({
-      "api-key": DATA_GOV_API_KEY,
-      format: "json",
-      limit: "1000",
-      "filters[commodity]": cropName
+    for (const cropName of cropNames) {
+      const params = new URLSearchParams({
+        "api-key": DATA_GOV_API_KEY,
+        format: "json",
+        limit: "1000",
+        "filters[commodity]": cropName
+      });
+
+      const url = `${API_URL}?${params.toString()}`;
+      let response = null;
+      let lastError = null;
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          if (attempt > 0) {
+            await sleep(Math.min(2000 * attempt, 5000));
+          }
+
+          response = await fetch(url);
+
+          if (response.ok) {
+            break;
+          }
+
+          if (response.status === 429) {
+            const retryAfter = Number(response.headers.get("retry-after"));
+            const waitMs =
+              Number.isFinite(retryAfter) && retryAfter > 0
+                ? Math.min(retryAfter * 1000, 10000)
+                : 2000 * (attempt + 1);
+
+            await sleep(waitMs);
+            continue;
+          }
+
+          lastError = new Error(`Government API error: ${response.status}`);
+          break;
+        } catch (error) {
+          lastError = error;
+
+          if (attempt < 2) {
+            await sleep(1000 * (attempt + 1));
+          }
+        }
+      }
+
+      if (!response?.ok) {
+        throw lastError || new Error("Government API request failed");
+      }
+
+      const result = await response.json();
+
+      if (Array.isArray(result.records)) {
+        allRecords = allRecords.concat(result.records);
+      }
+
+      if (cropNames.length > 1) {
+        await sleep(GOV_REQUEST_GAP_MS);
+      }
+    }
+
+    const uniqueRecords = Array.from(
+      new Map(allRecords.map((row) => [JSON.stringify(row), row])).values()
+    );
+
+    govCache.set(cacheKey, {
+      timestamp: Date.now(),
+      records: uniqueRecords
     });
 
-    const url = `${API_URL}?${params.toString()}`;
+    return uniqueRecords;
+  })();
 
-    let response = null;
-    let lastError = null;
+  govInflight.set(cacheKey, requestPromise);
 
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        response = await fetch(url);
-
-        if (response.ok) {
-          break;
-        }
-
-        if (response.status === 429) {
-          const retryAfter = Number(response.headers.get("retry-after"));
-          const waitMs =
-            Number.isFinite(retryAfter) && retryAfter > 0
-              ? Math.min(retryAfter * 1000, 5000)
-              : 1200 * (attempt + 1);
-
-          await sleep(waitMs);
-          continue;
-        }
-
-        lastError = new Error(`Government API error: ${response.status}`);
-        break;
-      } catch (error) {
-        lastError = error;
-
-        if (attempt < 2) {
-          await sleep(800 * (attempt + 1));
-        }
-      }
-    }
-
-    if (!response?.ok) {
-      if (lastError) {
-        throw lastError;
-      }
-
-      throw new Error("Government API request failed");
-    }
-
-    const result = await response.json();
-
-    if (Array.isArray(result.records)) {
-      allRecords = allRecords.concat(result.records);
-    }
+  try {
+    return await requestPromise;
+  } finally {
+    govInflight.delete(cacheKey);
   }
-
-  const uniqueRecords = Array.from(
-    new Map(allRecords.map((row) => [JSON.stringify(row), row])).values()
-  );
-
-  govCache.set(cacheKey, {
-    timestamp: Date.now(),
-    records: uniqueRecords
-  });
-
-  return uniqueRecords;
 }
 
 function buildMarketSummary(crop, records) {
