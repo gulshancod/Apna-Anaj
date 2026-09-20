@@ -93,7 +93,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
           const response = await apiFetch(
             `/api/market-summary-batch?crops=${encodeURIComponent(uniqueCrops.join(','))}`,
             {},
-            30000
+            60000
           );
 
           const result = await response.json();
@@ -105,13 +105,13 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
               return;
             }
 
-            const value = Number(
-              marketData?.[crop]?.averageModalPricePerKg
-            );
+            const entry = marketData?.[crop];
+            const value = Number(entry?.averageModalPricePerKg);
 
             nextPrices[id] =
-              marketData?.[crop]?.success === true &&
-              marketData?.[crop]?.isDemoData === false &&
+              entry?.success === true &&
+              entry?.availableData === true &&
+              entry?.isDemoData === false &&
               Number.isFinite(value) &&
               value > 0
                 ? value
