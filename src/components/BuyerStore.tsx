@@ -76,48 +76,57 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
       const nextPrices: Record<string, number | null> = {};
 
       try {
-        await Promise.all(
-          products.map(async (product) => {
-            const crop = getMandiCropName(product.name);
+        const productCrops = products.map((product) => ({
+          id: product.id,
+          crop: getMandiCropName(product.name)
+        }));
 
+        const uniqueCrops = Array.from(
+          new Set(
+            productCrops
+              .map(({ crop }) => crop)
+              .filter((crop) => crop !== 'milk')
+          )
+        );
+
+        if (uniqueCrops.length > 0) {
+          const response = await apiFetch(
+            `/api/market-summary-batch?crops=${encodeURIComponent(uniqueCrops.join(','))}`,
+            {},
+            30000
+          );
+
+          const result = await response.json();
+          const marketData = result?.data || {};
+
+          productCrops.forEach(({ id, crop }) => {
             if (crop === 'milk') {
-              nextPrices[product.id] = null;
+              nextPrices[id] = null;
               return;
             }
 
-            try {
-              const response = await apiFetch(
-                `/api/market-summary?crop=${encodeURIComponent(crop)}`,
-                {},
-                20000
-              );
+            const value = Number(
+              marketData?.[crop]?.averageModalPricePerKg
+            );
 
-              const result = await response.json();
+            nextPrices[id] =
+              marketData?.[crop]?.success === true &&
+              marketData?.[crop]?.isDemoData === false &&
+              Number.isFinite(value) &&
+              value > 0
+                ? value
+                : null;
+          });
+        }
 
-              if (
-                response.ok &&
-                result?.success === true &&
-                result?.isDemoData === false
-              ) {
-                const value = Number(result?.averageModalPricePerKg);
-
-                if (Number.isFinite(value) && value > 0) {
-                  nextPrices[product.id] = value;
-                  return;
-                }
-              }
-
-              nextPrices[product.id] = null;
-            } catch {
-              nextPrices[product.id] = null;
-            }
-          })
-        );
-      } catch {
         products.forEach((product) => {
           if (!(product.id in nextPrices)) {
             nextPrices[product.id] = null;
           }
+        });
+      } catch {
+        products.forEach((product) => {
+          nextPrices[product.id] = null;
         });
       }
 
@@ -264,11 +273,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
           <button
             key={cat.id}
             onClick={() => setSelectedCat(cat.id)}
-            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-              selectedCat === cat.id
-                ? 'bg-[#1e5634] text-white shadow-sm scale-105'
-                : 'bg-white dark:bg-[#15271e] text-[#5e7164] dark:text-[#9ab0a2] border border-[#e5dec9] dark:border-[#223f30] hover:border-[#1e5634] hover:text-[#1e5634]'
-            }`}
+            className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${selectedCat === cat.id ? 'bg-[#1e5634] text-white shadow-sm scale-105' : 'bg-white dark:bg-[#15271e] text-[#5e7164] dark:text-[#9ab0a2] border border-[#e5dec9] dark:border-[#223f30] hover:border-[#1e5634] hover:text-[#1e5634]'}`}
           >
             <span>{cat.icon}</span>
             <span>{cat.label}</span>
@@ -345,9 +350,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     aria-label="Save crop"
                   >
                     <Heart
-                      className={`w-4 h-4 ${
-                        isFav ? 'fill-[#f28b47] text-[#f28b47]' : ''
-                      }`}
+                      className={`w-4 h-4 ${isFav ? 'fill-[#f28b47] text-[#f28b47]' : ''}`}
                     />
                   </button>
 
@@ -387,39 +390,26 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     <div>
                       <div className="font-heading font-bold text-lg text-[#1e5634] dark:text-[#4ade80] leading-none">
                         {mandiLoading ? (
-                          <span
-                            className="inline-block h-5 w-20 rounded-md skeleton align-middle"
-                            aria-label="Loading price"
-                          />
+                          <span className="inline-block h-5 w-20 rounded-md skeleton align-middle" aria-label="Loading price" />
                         ) : (
                           <>
                             ₹{displayedPrice.toFixed(2)}
-                            <span className="text-[10px] font-normal ml-1">
-                              /kg
-                            </span>
+                            <span className="text-[10px] font-normal ml-1">/kg</span>
                           </>
                         )}
                       </div>
 
                       <div className="text-[9px] font-extrabold uppercase text-[#f28b47] tracking-wider mt-0.5">
                         {isMandiAvailable
-                          ? `Government Mandi Rate • Farmer Gets (88%): ₹${(
-                              mandiPrice * 0.88
-                            ).toFixed(2)}/kg`
-                          : `Demo Rate • Government rate unavailable • Farmer Gets (88%): ₹${(
-                              prod.price * 0.88
-                            ).toFixed(2)}/kg`}
+                          ? `Government Mandi Rate • Farmer Gets (88%): ₹${(mandiPrice * 0.88).toFixed(2)}/kg`
+                          : `Demo Rate • Government rate unavailable • Farmer Gets (88%): ₹${(prod.price * 0.88).toFixed(2)}/kg`}
                       </div>
                     </div>
 
                     {currentQty === 0 ? (
                       <button
                         onClick={() => onUpdateCart(pricedProduct, 1)}
-                        className={`flex items-center gap-1 px-3.5 py-1.5 rounded-lg border-1.5 border-[#1e5634] bg-white dark:bg-[#15271e] text-[#1e5634] dark:text-[#4ade80] hover:bg-[#1e5634] hover:text-white text-xs font-bold shadow-sm transition-all ${
-                          isMandiAvailable
-                            ? 'cursor-pointer'
-                            : 'opacity-50 cursor-not-allowed'
-                        }`}
+                        className={`flex items-center gap-1 px-3.5 py-1.5 rounded-lg border-1.5 border-[#1e5634] bg-white dark:bg-[#15271e] text-[#1e5634] dark:text-[#4ade80] hover:bg-[#1e5634] hover:text-white text-xs font-bold shadow-sm transition-all ${isMandiAvailable ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
                         disabled={!isMandiAvailable}
                       >
                         <Plus className="w-3.5 h-3.5" />
