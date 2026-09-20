@@ -418,64 +418,185 @@ const AI_LANGUAGE_NAMES = {
   kn: "Kannada"
 };
 
-async function generateAssistantAnswer(message, page, language) {
-  const systemPrompt = [
-    "You are Apna Anaj AI, a friendly agricultural marketplace assistant.",
-    "Explain the current Apna Anaj page and answer user questions about its features and workflow.",
-    "Use simple language suitable for farmers and buyers.",
-    `Reply in ${AI_LANGUAGE_NAMES[language] || "Hinglish"}.`,
-    `Current page: ${page || "unknown"}.`,
-    "Do not claim access to information you do not have."
-  ].join(" ");
+const AI_PAGE_DETAILS = {
+  "view-welcome": "Welcome/Home page. It introduces Apna Anaj and lets users choose Buyer or Farmer.",
+  "view-farmer-reg": "Farmer registration page. A farmer creates an account and enters farm/location details.",
+  "view-buyer-reg": "Buyer registration page. A buyer creates an account and enters contact/address details.",
+  "view-auth": "Login page for existing buyers and farmers.",
+  "view-buyer-store": "Buyer Fresh Store. Buyers browse farm produce, see prices and farmer/location details, add items to basket, save favorites, and checkout.",
+  "view-buyer-tracking": "Buyer Live Tracking. Shows the latest order status and delivery details.",
+  "view-farmer-dash": "Farmer Dashboard. Shows the farmer's workflow and current produce information.",
+  "view-add-produce": "Add Produce. Farmer enters crop, quantity, price, location and produce details for listing.",
+  "view-demand-forecast": "AI Demand Forecast. Helps the farmer understand expected demand trends for the selected crop.",
+  "view-selling-rec": "Selling Recommendation. Helps the farmer choose Sell Now, Wait, or Join Pool based on available demand signals.",
+  "view-matching": "Buyer Matching. Matches farmer produce with buyer demand using crop, quantity, location and offer information.",
+  "view-pooling": "Quantity Pooling. Farmers can combine quantities into a pool for larger buyer requirements.",
+  "view-route": "EV Pickup Route. Shows the pickup/delivery route workflow for produce movement.",
+  "view-transparency": "Price Transparency. Explains the price and payout flow so farmers can understand the transaction.",
+  "view-orders": "Orders and Batches. Shows order/batch information for the current workflow."
+};
 
-  if (process.env.GEMINI_API_KEY) {
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: message }] }],
-        generationConfig: { temperature: 0.3 }
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error?.message || "Gemini request failed.");
-    const answer = data?.candidates?.[0]?.content?.parts?.map((part) => part?.text || "").join("").trim();
-    if (!answer) throw new Error("Gemini returned an empty response.");
-    return answer;
+function getPageDetails(page) {
+  return AI_PAGE_DETAILS[page] || `Apna Anaj page: ${page || "unknown"}.`;
+}
+
+function buildLocalAssistantAnswer(message, page, language) {
+  const q = normalize(message);
+  const details = getPageDetails(page);
+
+  if (/^(hi|hello|hey|namaste|namaskar)\b/.test(q) || q.length < 4) {
+    return language === "en"
+      ? "Hello! I am Apna Anaj AI. Ask me about this page, farming workflow, buyer features, selling, matching, pooling, orders, or how to use Apna Anaj."
+      : "Namaste! Main Apna Anaj AI hoon. Is page, farming workflow, buyer features, selling, matching, pooling, orders ya website use karne ke baare mein poochho.";
   }
 
-  if (process.env.OPENROUTER_API_KEY) {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": "https://apna-anaj.vercel.app",
-        "X-Title": "Apna Anaj"
-      },
-      body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b:free",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message }
-        ],
-        temperature: 0.3
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error?.message || "OpenRouter request failed.");
-    const answer = data?.choices?.[0]?.message?.content?.trim();
-    if (!answer) throw new Error("OpenRouter returned an empty response.");
-    return answer;
+  if (q.includes("what is this page") || q.includes("this page") || q.includes("ye page") || q.includes("is page")) {
+    return language === "en"
+      ? details
+      : `Ye page ${details.toLowerCase()} Main simple steps mein samjha sakta hoon.`;
+  }
+
+  if (q.includes("how to use") || q.includes("kaise use") || q.includes("kya kar") || q.includes("what can i do")) {
+    return language === "en"
+      ? `On this page: ${details} Follow the visible buttons/cards to continue the workflow. Ask me the exact feature name and I will explain it step by step.`
+      : `Is page par: ${details} Aap visible buttons/cards se next step par ja sakte ho. Kisi exact feature ka naam bolo, main step-by-step samjha dunga.`;
+  }
+
+  if (q.includes("mandi") || q.includes("market price") || q.includes("rate")) {
+    return language === "en"
+      ? "The Mandi section is used for market-price information. For a specific crop and market, check the live market-rate area in the app. I will not invent a price when live data is unavailable."
+      : "Mandi section market-price information ke liye hai. Specific crop aur market ka live rate app ke market-rate area mein check karo. Live data available na ho to main fake rate nahi bataunga.";
+  }
+
+  if (q.includes("demand forecast") || q.includes("forecast") || q.includes("demand")) {
+    return language === "en"
+      ? "AI Demand Forecast estimates demand direction for the selected crop so the farmer can plan selling. It is a decision-support feature, not a guaranteed future price or demand."
+      : "AI Demand Forecast selected crop ki demand direction samajhne mein help karta hai, jisse farmer selling plan kar sake. Ye decision-support feature hai, guaranteed future price ya demand nahi.";
+  }
+
+  if (q.includes("sell now") || q.includes("wait") || q.includes("selling recommendation")) {
+    return language === "en"
+      ? "Selling Recommendation helps compare Sell Now, Wait, or Join Pool using the available demand/market signals shown by the app."
+      : "Selling Recommendation available demand/market signals ke basis par Sell Now, Wait ya Join Pool options ko samajhne mein help karta hai.";
+  }
+
+  if (q.includes("buyer matching") || q.includes("matching") || q.includes("buyer")) {
+    return language === "en"
+      ? "Buyer Matching connects a farmer's produce with buyer requirements. The workflow considers information such as crop, quantity, location and buyer demand/offer details."
+      : "Buyer Matching farmer ke produce ko buyer requirements se connect karta hai. Workflow mein crop, quantity, location aur buyer demand/offer jaise details use hote hain.";
+  }
+
+  if (q.includes("pool") || q.includes("pooling") || q.includes("quantity pooling")) {
+    return language === "en"
+      ? "Quantity Pooling lets farmers combine produce quantities so a larger buyer requirement can be handled collectively."
+      : "Quantity Pooling mein farmers apni produce quantity combine kar sakte hain, jisse larger buyer requirement ko collectively fulfil kiya ja sake.";
+  }
+
+  if (q.includes("order") || q.includes("checkout") || q.includes("basket") || q.includes("cart")) {
+    return language === "en"
+      ? "For buyers, add produce to the basket, review the total, and continue to checkout. The order/tracking screens then show the latest order status."
+      : "Buyer ke liye produce basket mein add karo, total review karo aur checkout karo. Uske baad order/tracking screen latest order status dikhati hai.";
   }
 
   return language === "en"
-    ? "AI service is not configured on the backend yet."
-    : "AI service abhi backend par configure nahi hai.";
+    ? `I can help with Apna Anaj and the current page. Current page: ${details} Ask your question with a little more detail and I will explain it step by step.`
+    : `Main Apna Anaj aur current page ke baare mein help kar sakta hoon. Current page: ${details} Sawaal thoda detail mein poochho, main step-by-step explain kar dunga.`;
 }
+
+async function generateAssistantAnswer(message, page, language) {
+  const safeLanguage = AI_LANGUAGE_NAMES[language] ? language : "hinglish";
+  const systemPrompt = [
+    "You are Apna Anaj AI, a helpful agricultural marketplace assistant embedded inside the Apna Anaj web app.",
+    "Answer general questions normally, but never invent live market prices, account data, order data, or private information.",
+    "For questions about the current page, explain the page purpose, visible workflow, what the user can do there, and the next useful action.",
+    "For farming and marketplace concepts, explain in simple practical language with examples when helpful.",
+    "When the user asks for steps, use short numbered steps.",
+    "Be clear, friendly, concise, and useful for Indian farmers and buyers.",
+    `Reply in ${AI_LANGUAGE_NAMES[safeLanguage]}.`,
+    `Current page: ${page || "unknown"}.`,
+    `Page details: ${getPageDetails(page)}`
+  ].join(" ");
+
+  if (process.env.GEMINI_API_KEY) {
+    const models = [
+      process.env.GEMINI_MODEL,
+      "gemini-2.5-flash",
+      "gemini-2.0-flash"
+    ].filter(Boolean);
+
+    let lastError = null;
+    for (const model of [...new Set(models)]) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: message }] }],
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 700
+            }
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          lastError = new Error(data?.error?.message || `Gemini request failed for ${model}.`);
+          continue;
+        }
+        const answer = data?.candidates?.[0]?.content?.parts?.map((part) => part?.text || "").join("").trim();
+        if (answer) return answer;
+        lastError = new Error("Gemini returned an empty response.");
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    console.error("Gemini assistant failed:", lastError);
+  }
+
+  if (process.env.OPENROUTER_API_KEY) {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "https://apna-anaj.vercel.app",
+          "X-Title": "Apna Anaj"
+        },
+        body: JSON.stringify({
+          model: process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b:free",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message }
+          ],
+          temperature: 0.4,
+          max_tokens: 700
+        })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        const answer = data?.choices?.[0]?.message?.content?.trim();
+        if (answer) return answer;
+      } else {
+        console.error("OpenRouter assistant failed:", data?.error?.message || response.status);
+      }
+    } catch (error) {
+      console.error("OpenRouter assistant request error:", error);
+    }
+  }
+
+  return buildLocalAssistantAnswer(message, page, safeLanguage);
+}
+
+app.get("/api/ai-assistant/health", async (req, res) => {
+  return res.json({
+    success: true,
+    configured: Boolean(process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY),
+    provider: process.env.GEMINI_API_KEY ? "gemini" : (process.env.OPENROUTER_API_KEY ? "openrouter" : "local-fallback")
+  });
+});
 
 app.post("/api/ai-assistant", async (req, res) => {
   try {
@@ -488,12 +609,20 @@ app.post("/api/ai-assistant", async (req, res) => {
     }
 
     const answer = await generateAssistantAnswer(message, page, language);
-    return res.json({ success: true, answer, page, language });
+    return res.json({
+      success: true,
+      answer,
+      page,
+      language,
+      provider: process.env.GEMINI_API_KEY
+        ? "gemini"
+        : (process.env.OPENROUTER_API_KEY ? "openrouter" : "local-fallback")
+    });
   } catch (error) {
     console.error("AI assistant error:", error);
     return res.status(503).json({
       success: false,
-      message: error?.message || "AI assistant is temporarily unavailable."
+      message: "AI assistant is temporarily unavailable. Please try again."
     });
   }
 });
