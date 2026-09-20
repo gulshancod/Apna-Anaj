@@ -41,109 +41,33 @@ app.use((req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-
-const DATA_GOV_API_KEY =
-  process.env.DATA_GOV_API_KEY;
-
-const RESOURCE_ID =
-  "9ef84268-d588-465a-a308-a864a43d0070";
-
-const API_URL =
-  `https://api.data.gov.in/resource/${RESOURCE_ID}`;
-
-
-// =====================================
-// CROP ALIASES
-// =====================================
+const DATA_GOV_API_KEY = process.env.DATA_GOV_API_KEY;
+const RESOURCE_ID = "9ef84268-d588-465a-a308-a864a43d0070";
+const API_URL = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
 
 const CROP_ALIASES = {
-  wheat: [
-    "Wheat",
-    "Gehu"
-  ],
-
-  rice: [
-    "Rice",
-    "Paddy(Common)"
-  ],
-
-  gram: [
-    "Bengal Gram(Gram)(Whole)"
-  ],
-
-  bajra: [
-    "Bajra(Pearl Millet/Cumbu)"
-  ],
-
-  tomato: [
-    "Tomato"
-  ],
-
-  onion: [
-    "Onion"
-  ],
-
-  potato: [
-    "Potato"
-  ],
-
-  bhindi: [
-    "Bhindi(Ladies Finger)"
-  ],
-
-  carrot: [
-    "Carrot"
-  ],
-
-  peas: [
-    "Green Peas"
-  ],
-
-  capsicum: [
-    "Capsicum"
-  ],
-
-  "bottle gourd": [
-    "Bottle gourd"
-  ],
-
-  brinjal: [
-    "Brinjal"
-  ],
-
-  cucumber: [
-    "Cucumbar(Kheera)"
-  ],
-
-  cauliflower: [
-    "Cauliflower"
-  ],
-
-  spinach: [
-    "Spinach"
-  ],
-
-  methi: [
-    "Methi"
-  ],
-
-  coriander: [
-    "Coriander(Leaves)"
-  ],
-
-  mango: [
-    "Mango"
-  ],
-
-  milk: [
-    "Milk"
-  ]
+  wheat: ["Wheat", "Gehu"],
+  rice: ["Rice", "Paddy(Common)"],
+  gram: ["Bengal Gram(Gram)(Whole)"],
+  bajra: ["Bajra(Pearl Millet/Cumbu)"],
+  tomato: ["Tomato"],
+  onion: ["Onion"],
+  potato: ["Potato"],
+  bhindi: ["Bhindi(Ladies Finger)"],
+  carrot: ["Carrot"],
+  peas: ["Green Peas"],
+  capsicum: ["Capsicum"],
+  "bottle gourd": ["Bottle gourd"],
+  brinjal: ["Brinjal"],
+  cucumber: ["Cucumbar(Kheera)"],
+  cauliflower: ["Cauliflower"],
+  spinach: ["Spinach"],
+  methi: ["Methi"],
+  coriander: ["Coriander(Leaves)"],
+  mango: ["Mango"],
+  milk: ["Milk"],
+  garlic: ["Garlic"]
 };
-
-
-// =====================================
-// DEMO FALLBACK
-// =====================================
 
 const DEMO_MARKET_DATA = {
   milk: {
@@ -153,269 +77,203 @@ const DEMO_MARKET_DATA = {
   }
 };
 
-
-// =====================================
-// NORMALIZE
-// =====================================
+const GOV_CACHE_TTL_MS = 5 * 60 * 1000;
+const govCache = new Map();
 
 function normalize(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
+  return String(value || "").trim().toLowerCase();
 }
-
-
-// =====================================
-// GET CROP NAMES
-// =====================================
 
 function getCropNames(crop) {
   const key = normalize(crop);
-
-  return (
-    CROP_ALIASES[key] || [crop]
-  );
+  return CROP_ALIASES[key] || [crop];
 }
 
-
-// =====================================
-// GET FIELD VALUE
-// =====================================
-
 function getField(row, names) {
-
   for (const name of names) {
-
-    if (
-      row[name] !== undefined &&
-      row[name] !== null
-    ) {
+    if (row[name] !== undefined && row[name] !== null) {
       return row[name];
     }
-
   }
-
   return "";
 }
 
+function formatMarketData(records) {
+  return records.map((row) => {
+    const minPrice =
+      Number(getField(row, ["min_price", "Min_x0020_Price", "Min Price"])) || 0;
+    const maxPrice =
+      Number(getField(row, ["max_price", "Max_x0020_Price", "Max Price"])) || 0;
+    const modalPrice =
+      Number(getField(row, ["modal_price", "Modal_x0020_Price", "Modal Price"])) || 0;
 
-// =====================================
-// FETCH GOVERNMENT DATA
-// =====================================
+    return {
+      state: getField(row, ["state", "State"]),
+      district: getField(row, ["district", "District"]),
+      market: getField(row, ["market", "Market"]),
+      commodity: getField(row, ["commodity", "Commodity"]),
+      variety: getField(row, ["variety", "Variety"]),
+      grade: getField(row, ["grade", "Grade"]),
+      arrivalDate: getField(row, ["arrival_date", "Arrival_Date", "Arrival Date"]),
+      minPrice,
+      maxPrice,
+      modalPrice,
+      minPricePerKg: Number((minPrice / 100).toFixed(2)),
+      maxPricePerKg: Number((maxPrice / 100).toFixed(2)),
+      modalPricePerKg: Number((modalPrice / 100).toFixed(2))
+    };
+  });
+}
+
+async function sleep(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function fetchGovernmentData(crop) {
+  const cacheKey = normalize(crop);
+  const cached = govCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < GOV_CACHE_TTL_MS) {
+    return cached.records;
+  }
 
   if (!DATA_GOV_API_KEY) {
-    throw new Error(
-      "DATA_GOV_API_KEY missing in .env"
-    );
+    throw new Error("DATA_GOV_API_KEY missing in .env");
   }
 
-  const cropNames =
-    getCropNames(crop);
-
+  const cropNames = getCropNames(crop);
   let allRecords = [];
 
-
   for (const cropName of cropNames) {
+    const params = new URLSearchParams({
+      "api-key": DATA_GOV_API_KEY,
+      format: "json",
+      limit: "1000",
+      "filters[commodity]": cropName
+    });
 
-    const params =
-      new URLSearchParams({
+    const url = `${API_URL}?${params.toString()}`;
 
-        "api-key":
-          DATA_GOV_API_KEY,
+    let response = null;
+    let lastError = null;
 
-        format:
-          "json",
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        response = await fetch(url);
 
-        limit:
-          "10000",
+        if (response.ok) {
+          break;
+        }
 
-        "filters[commodity]":
-          cropName
+        if (response.status === 429) {
+          const retryAfter = Number(response.headers.get("retry-after"));
+          const waitMs =
+            Number.isFinite(retryAfter) && retryAfter > 0
+              ? Math.min(retryAfter * 1000, 5000)
+              : 1200 * (attempt + 1);
 
-      });
+          await sleep(waitMs);
+          continue;
+        }
 
+        lastError = new Error(`Government API error: ${response.status}`);
+        break;
+      } catch (error) {
+        lastError = error;
 
-    const url =
-      `${API_URL}?${params.toString()}`;
-
-
-    const response =
-      await fetch(url);
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        `Government API error: ${response.status}`
-      );
-
+        if (attempt < 2) {
+          await sleep(800 * (attempt + 1));
+        }
+      }
     }
 
+    if (!response?.ok) {
+      if (lastError) {
+        throw lastError;
+      }
 
-    const result =
-      await response.json();
-
-
-    if (
-      Array.isArray(result.records)
-    ) {
-
-      allRecords =
-        allRecords.concat(
-          result.records
-        );
-
+      throw new Error("Government API request failed");
     }
 
+    const result = await response.json();
+
+    if (Array.isArray(result.records)) {
+      allRecords = allRecords.concat(result.records);
+    }
   }
 
+  const uniqueRecords = Array.from(
+    new Map(allRecords.map((row) => [JSON.stringify(row), row])).values()
+  );
 
-  // Remove duplicate records
-
-  const uniqueRecords =
-    Array.from(
-      new Map(
-        allRecords.map(
-          (row, index) => [
-            JSON.stringify(row),
-            row
-          ]
-        )
-      ).values()
-    );
-
+  govCache.set(cacheKey, {
+    timestamp: Date.now(),
+    records: uniqueRecords
+  });
 
   return uniqueRecords;
 }
 
+function buildMarketSummary(crop, records) {
+  const marketData = formatMarketData(records);
 
-// =====================================
-// FORMAT GOVERNMENT DATA
-// =====================================
+  const prices = marketData
+    .map((row) => Number(row.modalPrice))
+    .filter((price) => Number.isFinite(price) && price >= 100);
 
-function formatMarketData(records) {
+  if (!prices.length) {
+    return null;
+  }
 
-  return records.map((row) => {
+  const average = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+  const lowest = Math.min(...prices);
+  const highest = Math.max(...prices);
+  const markets = new Set(
+    marketData.map((row) => row.market).filter(Boolean)
+  );
 
-    const minPrice =
-      Number(
-        getField(row, [
-          "min_price",
-          "Min_x0020_Price",
-          "Min Price"
-        ])
-      ) || 0;
-
-
-    const maxPrice =
-      Number(
-        getField(row, [
-          "max_price",
-          "Max_x0020_Price",
-          "Max Price"
-        ])
-      ) || 0;
-
-
-    const modalPrice =
-      Number(
-        getField(row, [
-          "modal_price",
-          "Modal_x0020_Price",
-          "Modal Price"
-        ])
-      ) || 0;
-
-
-    return {
-
-      state:
-        getField(row, [
-          "state",
-          "State"
-        ]),
-
-      district:
-        getField(row, [
-          "district",
-          "District"
-        ]),
-
-      market:
-        getField(row, [
-          "market",
-          "Market"
-        ]),
-
-      commodity:
-        getField(row, [
-          "commodity",
-          "Commodity"
-        ]),
-
-      variety:
-        getField(row, [
-          "variety",
-          "Variety"
-        ]),
-
-      grade:
-        getField(row, [
-          "grade",
-          "Grade"
-        ]),
-
-      arrivalDate:
-        getField(row, [
-          "arrival_date",
-          "Arrival_Date",
-          "Arrival Date"
-        ]),
-
-
-      // Government price
-      // ₹/Quintal
-
-      minPrice,
-
-      maxPrice,
-
-      modalPrice,
-
-
-      // ₹/KG
-
-      minPricePerKg:
-        Number(
-          (minPrice / 100)
-            .toFixed(2)
-        ),
-
-      maxPricePerKg:
-        Number(
-          (maxPrice / 100)
-            .toFixed(2)
-        ),
-
-      modalPricePerKg:
-        Number(
-          (modalPrice / 100)
-            .toFixed(2)
-        )
-
-    };
-
-  });
-
+  return {
+    success: true,
+    availableData: true,
+    isDemoData: false,
+    source: "Government of India - AGMARKNET",
+    sourceType: "Live Government API",
+    crop,
+    markets: markets.size,
+    records: prices.length,
+    priceUnit: "₹/Quintal",
+    averageModalPrice: Math.round(average),
+    lowestModalPrice: lowest,
+    highestModalPrice: highest,
+    priceUnitPerKg: "₹/KG",
+    averageModalPricePerKg: Number((average / 100).toFixed(2)),
+    lowestModalPricePerKg: Number((lowest / 100).toFixed(2)),
+    highestModalPricePerKg: Number((highest / 100).toFixed(2))
+  };
 }
 
+function getDemoSummary(crop) {
+  const demo = DEMO_MARKET_DATA[crop];
 
+  if (!demo) {
+    return null;
+  }
 
-// =====================================
-// AUTHENTICATION
-// =====================================
+  return {
+    success: true,
+    availableData: true,
+    isDemoData: true,
+    source: "ApnaAnaj Demo Reference Data",
+    sourceType: "Demo",
+    crop,
+    markets: 0,
+    records: 1,
+    priceUnit: "₹/KG",
+    averageModalPricePerKg: demo.average,
+    lowestModalPricePerKg: demo.lowest,
+    highestModalPricePerKg: demo.highest
+  };
+}
 
 function getBearerToken(req) {
   const header = String(req.headers.authorization || "");
@@ -429,22 +287,12 @@ function requireMongo(req, res, next) {
       message: "Database is not connected. Configure MONGODB_URI on the backend."
     });
   }
-
   next();
 }
 
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const {
-      role,
-      name,
-      phone,
-      email,
-      password,
-      farm,
-      location,
-      address
-    } = req.body || {};
+    const { role, name, phone, email, password, farm, location, address } = req.body || {};
 
     if (!process.env.MONGODB_URI) {
       return res.status(503).json({
@@ -466,13 +314,9 @@ app.post("/api/auth/register", async (req, res) => {
       address
     });
 
-    return res.status(201).json({
-      success: true,
-      ...session
-    });
+    return res.status(201).json({ success: true, ...session });
   } catch (error) {
     console.error("Registration error:", error);
-
     const duplicate = /already exists/i.test(error.message);
     return res.status(duplicate ? 409 : 400).json({
       success: false,
@@ -493,16 +337,11 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     await connectMongoDB();
-
     const session = await loginUser(identifier, password, role);
 
-    return res.json({
-      success: true,
-      ...session
-    });
+    return res.json({ success: true, ...session });
   } catch (error) {
     console.error("Login error:", error);
-
     return res.status(401).json({
       success: false,
       message: error.message
@@ -521,13 +360,9 @@ app.get("/api/auth/me", requireMongo, async (req, res) => {
       });
     }
 
-    return res.json({
-      success: true,
-      user
-    });
+    return res.json({ success: true, user });
   } catch (error) {
     console.error("Session check error:", error);
-
     return res.status(401).json({
       success: false,
       message: "Unable to restore your session."
@@ -538,24 +373,15 @@ app.get("/api/auth/me", requireMongo, async (req, res) => {
 app.post("/api/auth/logout", requireMongo, async (req, res) => {
   try {
     await logoutUser(getBearerToken(req));
-
-    return res.json({
-      success: true
-    });
+    return res.json({ success: true });
   } catch (error) {
     console.error("Logout error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Unable to log out."
     });
   }
 });
-
-
-// =====================================
-// TEST API
-// =====================================
 
 app.get("/api/db-test", async (req, res) => {
   try {
@@ -568,7 +394,6 @@ app.get("/api/db-test", async (req, res) => {
     }
 
     await connectMongoDB();
-
     const db = getMongoDB();
     const ping = await db.command({ ping: 1 });
 
@@ -580,7 +405,6 @@ app.get("/api/db-test", async (req, res) => {
     });
   } catch (error) {
     console.error("MongoDB health check error:", error);
-
     return res.status(503).json({
       success: false,
       connected: false,
@@ -589,484 +413,126 @@ app.get("/api/db-test", async (req, res) => {
   }
 });
 
+app.get("/api/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "ApnaAnaj backend is working!",
+    governmentAPI: Boolean(DATA_GOV_API_KEY)
+  });
+});
 
-app.get(
-  "/api/test",
-  (req, res) => {
+app.get("/api/market-data", async (req, res) => {
+  try {
+    const crop = normalize(req.query.crop || "Tomato");
+    const records = await fetchGovernmentData(crop);
 
-    res.json({
+    if (records.length > 0) {
+      const marketData = formatMarketData(records);
 
-      success: true,
+      return res.json({
+        success: true,
+        availableData: true,
+        isDemoData: false,
+        source: "Government of India - AGMARKNET",
+        sourceType: "Live Government API",
+        priceUnit: "₹/Quintal",
+        convertedPriceUnit: "₹/KG",
+        crop,
+        records: marketData.length,
+        data: marketData
+      });
+    }
 
-      message:
-        "ApnaAnaj backend is working!",
+    const demo = getDemoSummary(crop);
 
-      governmentAPI:
-        Boolean(
-          DATA_GOV_API_KEY
-        )
+    if (demo) {
+      return res.json({
+        ...demo,
+        data: [
+          {
+            state: "Demo",
+            district: "Demo",
+            market: "ApnaAnaj Demo Market",
+            commodity: crop,
+            variety: "Demo",
+            grade: "Demo",
+            arrivalDate: new Date().toISOString().split("T")[0],
+            minPrice: demo.lowestModalPricePerKg,
+            maxPrice: demo.highestModalPricePerKg,
+            modalPrice: demo.averageModalPricePerKg,
+            minPricePerKg: demo.lowestModalPricePerKg,
+            maxPricePerKg: demo.highestModalPricePerKg,
+            modalPricePerKg: demo.averageModalPricePerKg
+          }
+        ]
+      });
+    }
 
+    return res.json({
+      success: false,
+      availableData: false,
+      isDemoData: false,
+      crop,
+      records: 0,
+      message: "No government mandi data found for this crop."
     });
-
+  } catch (error) {
+    console.error("Market data error:", error);
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
-);
+});
 
+app.get("/api/market-summary", async (req, res) => {
+  try {
+    const crop = normalize(req.query.crop || "Tomato");
+    const records = await fetchGovernmentData(crop);
 
-// =====================================
-// MARKET DATA
-// =====================================
+    if (records.length > 0) {
+      const summary = buildMarketSummary(crop, records);
 
-app.get(
-  "/api/market-data",
-  async (req, res) => {
-
-    try {
-
-      const crop =
-        normalize(
-          req.query.crop ||
-          "Tomato"
-        );
-
-
-      const records =
-        await fetchGovernmentData(
-          crop
-        );
-
-
-      // Government data found
-
-      if (
-        records.length > 0
-      ) {
-
-        const marketData =
-          formatMarketData(
-            records
-          );
-
-
-        return res.json({
-
-          success: true,
-
-          availableData: true,
-
-          isDemoData: false,
-
-          source:
-            "Government of India - AGMARKNET",
-
-          sourceType:
-            "Live Government API",
-
-          priceUnit:
-            "₹/Quintal",
-
-          convertedPriceUnit:
-            "₹/KG",
-
-          crop,
-
-          records:
-            marketData.length,
-
-          data:
-            marketData
-
-        });
-
+      if (summary) {
+        return res.json(summary);
       }
-
-
-      // =================================
-      // DEMO FALLBACK
-      // =================================
-
-      if (
-        DEMO_MARKET_DATA[crop]
-      ) {
-
-        const demo =
-          DEMO_MARKET_DATA[crop];
-
-
-        return res.json({
-
-          success: true,
-
-          availableData: true,
-
-          isDemoData: true,
-
-          source:
-            "ApnaAnaj Demo Reference Data",
-
-          crop,
-
-          records: 1,
-
-          data: [
-
-            {
-
-              state:
-                "Demo",
-
-              district:
-                "Demo",
-
-              market:
-                "ApnaAnaj Demo Market",
-
-              commodity:
-                crop,
-
-              variety:
-                "Demo",
-
-              grade:
-                "Demo",
-
-              arrivalDate:
-                new Date()
-                  .toISOString()
-                  .split("T")[0],
-
-              minPrice:
-                demo.lowest,
-
-              maxPrice:
-                demo.highest,
-
-              modalPrice:
-                demo.average,
-
-              minPricePerKg:
-                demo.lowest,
-
-              maxPricePerKg:
-                demo.highest,
-
-              modalPricePerKg:
-                demo.average
-
-            }
-
-          ]
-
-        });
-
-      }
-
-
-      // No data
-
-      return res.json({
-
-        success: false,
-
-        availableData: false,
-
-        isDemoData: false,
-
-        crop,
-
-        records: 0,
-
-        message:
-          "No government mandi data found for this crop."
-
-      });
-
     }
 
-    catch (error) {
+    const demo = getDemoSummary(crop);
 
-      console.error(
-        "Market data error:",
-        error
-      );
-
-
-      res.status(500).json({
-
-        success: false,
-
-        error:
-          error.message
-
-      });
-
+    if (demo) {
+      return res.json(demo);
     }
 
+    return res.json({
+      success: false,
+      availableData: false,
+      isDemoData: false,
+      crop,
+      markets: 0,
+      records: 0,
+      message: "No government mandi price data found for this crop."
+    });
+  } catch (error) {
+    console.error("Market summary error:", error);
+
+    return res.status(503).json({
+      success: false,
+      availableData: false,
+      isDemoData: false,
+      crop: normalize(req.query.crop || "Tomato"),
+      error: error.message,
+      message: "Government mandi service is temporarily unavailable."
+    });
   }
-);
-
-
-// =====================================
-// MARKET SUMMARY
-// =====================================
-
-app.get(
-  "/api/market-summary",
-  async (req, res) => {
-
-    try {
-
-      const crop =
-        normalize(
-          req.query.crop ||
-          "Tomato"
-        );
-
-
-      const records =
-        await fetchGovernmentData(
-          crop
-        );
-
-
-      // =================================
-      // GOVERNMENT DATA
-      // =================================
-
-      if (
-        records.length > 0
-      ) {
-
-        const marketData =
-          formatMarketData(
-            records
-          );
-
-
-        const prices =
-         marketData
-          .map(
-           (row) =>
-            Number(row.modalPrice)
-           )
-          .filter(
-           (price) =>
-            Number.isFinite(price) &&
-            price >= 100
-         );
-
-
-        if (
-          prices.length > 0
-        ) {
-
-          const average =
-            prices.reduce(
-              (sum, price) =>
-                sum + price,
-              0
-            ) / prices.length;
-
-
-          const lowest =
-            Math.min(
-              ...prices
-            );
-
-
-          const highest =
-            Math.max(
-              ...prices
-            );
-
-
-          const markets =
-            new Set(
-              marketData
-                .map(
-                  (row) =>
-                    row.market
-                )
-                .filter(Boolean)
-            );
-
-
-          return res.json({
-
-            success: true,
-
-            availableData: true,
-
-            isDemoData: false,
-
-            source:
-              "Government of India - AGMARKNET",
-
-            sourceType:
-              "Live Government API",
-
-            crop,
-
-            markets:
-              markets.size,
-
-            records:
-              prices.length,
-
-            priceUnit:
-              "₹/Quintal",
-
-            averageModalPrice:
-              Math.round(
-                average
-              ),
-
-            lowestModalPrice:
-              lowest,
-
-            highestModalPrice:
-              highest,
-
-            priceUnitPerKg:
-              "₹/KG",
-
-            averageModalPricePerKg:
-              Number(
-                (
-                  average / 100
-                ).toFixed(2)
-              ),
-
-            lowestModalPricePerKg:
-              Number(
-                (
-                  lowest / 100
-                ).toFixed(2)
-              ),
-
-            highestModalPricePerKg:
-              Number(
-                (
-                  highest / 100
-                ).toFixed(2)
-              )
-
-          });
-
-        }
-
-      }
-
-
-      // =================================
-      // DEMO FALLBACK
-      // =================================
-
-      if (
-        DEMO_MARKET_DATA[crop]
-      ) {
-
-        const demo =
-          DEMO_MARKET_DATA[crop];
-
-
-        return res.json({
-
-          success: true,
-
-          availableData: true,
-
-          isDemoData: true,
-
-          source:
-            "ApnaAnaj Demo Reference Data",
-
-          sourceType:
-            "Demo",
-
-          crop,
-
-          markets: 0,
-
-          records: 1,
-
-          priceUnit:
-            "₹/KG",
-
-          averageModalPricePerKg:
-            demo.average,
-
-          lowestModalPricePerKg:
-            demo.lowest,
-
-          highestModalPricePerKg:
-            demo.highest
-
-        });
-
-      }
-
-
-      // =================================
-      // NO DATA
-      // =================================
-
-      return res.json({
-
-        success: false,
-
-        availableData: false,
-
-        isDemoData: false,
-
-        crop,
-
-        markets: 0,
-
-        records: 0,
-
-        message:
-          "No government mandi price data found for this crop."
-
-      });
-
-    }
-
-    catch (error) {
-
-      console.error(
-        "Market summary error:",
-        error
-      );
-
-
-      res.status(500).json({
-
-        success: false,
-
-        error:
-          error.message
-
-      });
-
-    }
-
-  }
-);
-
-
-// =====================================
-// BATCH MARKET SUMMARY
-// =====================================
+});
 
 app.get("/api/market-summary-batch", async (req, res) => {
   try {
     const raw = String(req.query.crops || "");
     const crops = Array.from(
       new Set(
-        raw
-          .split(",")
-          .map(normalize)
-          .filter(Boolean)
+        raw.split(",").map(normalize).filter(Boolean)
       )
     ).slice(0, 25);
 
@@ -1077,73 +543,45 @@ app.get("/api/market-summary-batch", async (req, res) => {
       });
     }
 
-    const entries = await Promise.all(
-      crops.map(async (crop) => {
-        try {
-          const records = await fetchGovernmentData(crop);
+    const entries = [];
 
-          if (records.length > 0) {
-            const marketData = formatMarketData(records);
-            const prices = marketData
-              .map((row) => Number(row.modalPrice))
-              .filter((price) => Number.isFinite(price) && price >= 100);
+    for (const crop of crops) {
+      try {
+        const records = await fetchGovernmentData(crop);
 
-            if (prices.length > 0) {
-              const markets = new Set(
-                marketData.map((row) => row.market).filter(Boolean)
-              );
-
-              const average = prices.reduce((sum, price) => sum + price, 0) / prices.length;
-              const lowest = Math.min(...prices);
-              const highest = Math.max(...prices);
-
-              return [crop, {
-                success: true,
-                availableData: true,
-                isDemoData: false,
-                source: "Government of India - AGMARKNET",
-                sourceType: "Live Government API",
-                markets: markets.size,
-                records: prices.length,
-                averageModalPricePerKg: Number((average / 100).toFixed(2)),
-                lowestModalPricePerKg: Number((lowest / 100).toFixed(2)),
-                highestModalPricePerKg: Number((highest / 100).toFixed(2))
-              }];
-            }
+        if (records.length > 0) {
+          const summary = buildMarketSummary(crop, records);
+          if (summary) {
+            entries.push([crop, summary]);
+            continue;
           }
+        }
 
-          if (DEMO_MARKET_DATA[crop]) {
-            const demo = DEMO_MARKET_DATA[crop];
-            return [crop, {
-              success: true,
-              availableData: true,
-              isDemoData: true,
-              source: "ApnaAnaj Demo Reference Data",
-              sourceType: "Demo",
-              markets: 0,
-              records: 1,
-              averageModalPricePerKg: demo.average,
-              lowestModalPricePerKg: demo.lowest,
-              highestModalPricePerKg: demo.highest
-            }];
-          }
-
-          return [crop, {
+        const demo = getDemoSummary(crop);
+        entries.push([
+          crop,
+          demo || {
             success: false,
             availableData: false,
             isDemoData: false,
             message: "No government mandi data found for this crop."
-          }];
-        } catch (error) {
-          return [crop, {
+          }
+        ]);
+      } catch (error) {
+        entries.push([
+          crop,
+          {
             success: false,
             availableData: false,
             isDemoData: false,
-            message: error.message
-          }];
-        }
-      })
-    );
+            error: error.message,
+            message: "Government mandi service is temporarily unavailable."
+          }
+        ]);
+      }
+
+      await sleep(250);
+    }
 
     return res.json({
       success: true,
@@ -1153,21 +591,12 @@ app.get("/api/market-summary-batch", async (req, res) => {
   } catch (error) {
     console.error("Batch market summary error:", error);
 
-    return res.status(500).json({
+    return res.status(503).json({
       success: false,
       message: error.message
     });
   }
 });
-
-
-// =====================================
-// PRICE COMPARISON
-// =====================================
-
-// =====================================
-// PRICE COMPARISON
-// =====================================
 
 app.get("/api/price-comparison", async (req, res) => {
   try {
@@ -1180,15 +609,12 @@ app.get("/api/price-comparison", async (req, res) => {
       const day = String(date.getDate()).padStart(2, "0");
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const year = date.getFullYear();
-
       return `${day}/${month}/${year}`;
     };
 
     const currentDate = formatMandiDate(today);
-
     const lastMonth = new Date(today);
     lastMonth.setMonth(lastMonth.getMonth() - 1);
-
     const lastMonthDate = formatMandiDate(lastMonth);
 
     async function fetchPriceByDate(date) {
@@ -1196,20 +622,11 @@ app.get("/api/price-comparison", async (req, res) => {
 
       for (const cropName of cropNames) {
         const url = new URL(API_URL);
-
         url.searchParams.set("api-key", DATA_GOV_API_KEY);
         url.searchParams.set("format", "json");
-        url.searchParams.set("limit", "10000");
-
-        url.searchParams.set(
-          "filters[commodity]",
-          cropName
-        );
-
-        url.searchParams.set(
-          "filters[arrival_date]",
-          date
-        );
+        url.searchParams.set("limit", "1000");
+        url.searchParams.set("filters[commodity]", cropName);
+        url.searchParams.set("filters[arrival_date]", date);
 
         const response = await fetch(url.toString());
 
@@ -1226,32 +643,21 @@ app.get("/api/price-comparison", async (req, res) => {
 
       return Array.from(
         new Map(
-          allRecords.map((row) => [
-            JSON.stringify(row),
-            row
-          ])
+          allRecords.map((row) => [JSON.stringify(row), row])
         ).values()
       );
     }
 
-    const currentRecords =
-      await fetchPriceByDate(currentDate);
-
-    const lastMonthRecords =
-      await fetchPriceByDate(lastMonthDate);
+    const currentRecords = await fetchPriceByDate(currentDate);
+    const lastMonthRecords = await fetchPriceByDate(lastMonthDate);
 
     function getAveragePrice(records) {
-      const formatted =
-        formatMarketData(records);
+      const formatted = formatMarketData(records);
 
       const prices = formatted
-        .map((item) =>
-          Number(item.modalPrice)
-        )
+        .map((item) => Number(item.modalPrice))
         .filter(
-          (price) =>
-            Number.isFinite(price) &&
-            price >= 100
+          (price) => Number.isFinite(price) && price >= 100
         );
 
       if (!prices.length) {
@@ -1260,26 +666,15 @@ app.get("/api/price-comparison", async (req, res) => {
 
       return Number(
         (
-          prices.reduce(
-            (sum, price) =>
-              sum + price,
-            0
-          ) /
+          prices.reduce((sum, price) => sum + price, 0) /
           prices.length /
           100
         ).toFixed(2)
       );
     }
 
-    const currentPricePerKg =
-      getAveragePrice(
-        currentRecords
-      );
-
-    const lastMonthPricePerKg =
-      getAveragePrice(
-        lastMonthRecords
-      );
+    const currentPricePerKg = getAveragePrice(currentRecords);
+    const lastMonthPricePerKg = getAveragePrice(lastMonthRecords);
 
     if (
       currentPricePerKg === null ||
@@ -1299,13 +694,9 @@ app.get("/api/price-comparison", async (req, res) => {
 
     const changePercent = Number(
       (
-        (
-          (
-            currentPricePerKg -
-            lastMonthPricePerKg
-          ) /
-          lastMonthPricePerKg
-        ) * 100
+        ((currentPricePerKg - lastMonthPricePerKg) /
+          lastMonthPricePerKg) *
+        100
       ).toFixed(2)
     );
 
@@ -1317,49 +708,31 @@ app.get("/api/price-comparison", async (req, res) => {
       priceLevel = "LOW";
     }
 
-    res.json({
+    return res.json({
       success: true,
       availableData: true,
       isDemoData: false,
-
-      source:
-        "Government of India - AGMARKNET",
-
-      sourceType:
-        "Government Daily Mandi Data",
-
+      source: "Government of India - AGMARKNET",
+      sourceType: "Government Daily Mandi Data",
       crop,
-
       currentDate,
       lastMonthDate,
-
       currentPricePerKg,
       lastMonthPricePerKg,
-
       changePercent,
       priceLevel
     });
-
   } catch (error) {
+    console.error("Price comparison error:", error.message);
 
-    console.error(
-      "Price comparison error:",
-      error.message
-    );
-
-    res.status(500).json({
+    return res.status(503).json({
       success: false,
       availableData: false,
       isDemoData: false,
-      message: error.message
+      message: "Government historical mandi service is temporarily unavailable."
     });
   }
 });
-
-
-// =====================================
-// START SERVER
-// =====================================
 
 async function startServer() {
   if (process.env.MONGODB_URI) {
@@ -1374,23 +747,12 @@ async function startServer() {
     console.warn("MongoDB: NOT CONFIGURED (set MONGODB_URI)");
   }
 
-  app.listen(
-    PORT,
-    "0.0.0.0",
-    () => {
-      console.log(
-        `Backend running on http://localhost:${PORT}`
-      );
-
-      console.log(
-        `Government API: ${
-          DATA_GOV_API_KEY
-            ? "CONNECTED"
-            : "NOT CONNECTED"
-        }`
-      );
-    }
-  );
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Backend running on http://localhost:${PORT}`);
+    console.log(
+      `Government API: ${DATA_GOV_API_KEY ? "CONNECTED" : "NOT CONNECTED"}`
+    );
+  });
 }
 
 export { app };
