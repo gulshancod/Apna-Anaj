@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { connectMongoDB, getMongoDB, isMongoConnected } from "./server/db.js";
 import { registerUser, loginUser, getUserFromToken, logoutUser } from "./server/auth.js";
+import { sendWelcomeWhatsApp } from "./server/whatsapp.js";
 
 dotenv.config();
 
@@ -465,6 +466,11 @@ app.post("/api/auth/register", async (req, res) => {
       location,
       address
     });
+    try {
+      await sendWelcomeWhatsApp({ name, phone, role });
+    } catch (whatsappError) {
+      console.error("WhatsApp welcome message failed:", whatsappError.message);
+    }
 
     return res.status(201).json({
       success: true,
