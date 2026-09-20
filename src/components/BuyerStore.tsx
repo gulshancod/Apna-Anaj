@@ -98,33 +98,29 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
           )
         );
 
-        if (crops.length > 0) {
-          const response = await apiFetch(
-            `/api/market-summary-batch?crops=${encodeURIComponent(crops.join(','))}`
-          );
+       if (crops.length > 0) {
+  const response = await apiFetch(
+    `/api/market-summary-batch?crops=${encodeURIComponent(crops.join(','))}`
+  );
 
-          if (!response.ok) {
-            throw new Error('Batch mandi request failed');
-          }
+  if (!response.ok) {
+    throw new Error('Batch mandi request failed');
+  }
 
-          const result = await response.json();
-          const marketData = result?.data || {};
+  const result = await response.json();
+  const marketData = result?.data || {};
 
-          productCrops.forEach(({ id, crop }) => {
-            const value = marketData?.[crop]?.averageModalPricePerKg;
-            nextPrices[id] =
-              typeof value === 'number' && Number.isFinite(value)
-                ? value
-                : null;
-          });
-        }
-      } catch {
-        products.forEach((product) => {
-          if (!(product.id in nextPrices)) {
-            nextPrices[product.id] = null;
-          }
-        });
-      }
+  productCrops.forEach(({ id, crop }) => {
+    const value = Number(
+      marketData?.[crop]?.averageModalPricePerKg
+    );
+
+    nextPrices[id] =
+      Number.isFinite(value) && value > 0
+        ? value
+        : null;
+  });
+}
 
       if (!cancelled) {
         setMandiPrices(nextPrices);
