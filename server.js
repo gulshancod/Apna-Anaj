@@ -403,6 +403,101 @@ app.post("/api/auth/logout", requireMongo, async (req, res) => {
   }
 });
 
+
+
+const AI_LANGUAGE_NAMES = {
+  en: "English",
+  hinglish: "Hinglish",
+  hi: "Hindi",
+  mr: "Marathi",
+  pa: "Punjabi",
+  gu: "Gujarati",
+  bn: "Bengali",
+  te: "Telugu",
+  ta: "Tamil",
+  kn: "Kannada"
+};
+
+async function generateAssistantAnswer(message, page, language) {
+  const systemPrompt = [
+    "You are Apna Anaj AI, a friendly agricultural marketplace assistant.",
+    "Explain the current Apna Anaj page and answer user questions about its features and workflow.",
+    "Use simple language suitable for farmers and buyers.",
+    `Reply in ${AI_LANGUAGE_NAMES[language] || "Hinglish"}.`,
+    `Current page: ${page || "unknown"}.`,
+    "Do not claim access to information you do not have."
+  ].join(" ");
+
+  if (process.env.GEMINI_API_KEY) {
+    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: message }] }],
+        generationConfig: { temperature: 0.3 }
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error?.message || "Gemini request failed.");
+    const answer = data?.candidates?.[0]?.content?.parts?.map((part) => part?.text || "").join("").trim();
+    if (!answer) throw new Error("Gemini returned an empty response.");
+    return answer;
+  }
+
+  if (process.env.OPENROUTER_API_KEY) {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://apna-anaj.vercel.app",
+        "X-Title": "Apna Anaj"
+      },
+      body: JSON.stringify({
+        model: process.env.OPENROUTER_MODEL || "openai/gpt-oss-20b:free",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message }
+        ],
+        temperature: 0.3
+      })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error?.message || "OpenRouter request failed.");
+    const answer = data?.choices?.[0]?.message?.content?.trim();
+    if (!answer) throw new Error("OpenRouter returned an empty response.");
+    return answer;
+  }
+
+  return language === "en"
+    ? "AI service is not configured on the backend yet."
+    : "AI service abhi backend par configure nahi hai.";
+}
+
+app.post("/api/ai-assistant", async (req, res) => {
+  try {
+    const message = String(req.body?.message || "").trim();
+    const page = String(req.body?.page || "unknown").trim();
+    const language = String(req.body?.language || "hinglish").trim();
+
+    if (!message) {
+      return res.status(400).json({ success: false, message: "Message is required." });
+    }
+
+    const answer = await generateAssistantAnswer(message, page, language);
+    return res.json({ success: true, answer, page, language });
+  } catch (error) {
+    console.error("AI assistant error:", error);
+    return res.status(503).json({
+      success: false,
+      message: error?.message || "AI assistant is temporarily unavailable."
+    });
+  }
+});
+
 app.get("/api/db-test", async (req, res) => {
   try {
     if (!process.env.MONGODB_URI) {
