@@ -49,13 +49,30 @@ export const AIAssistant: React.FC<Props> = ({ currentLang, currentPage }) => {
 
   const speak=(text:string)=>{
     if(!voiceOn || !('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
+    const synth=window.speechSynthesis;
+    synth.cancel();
+
     const u=new SpeechSynthesisUtterance(text);
     u.lang=localeMap[currentLang];
-    u.rate=0.98;
-    u.pitch=1;
-    window.speechSynthesis.speak(u);
+    u.rate=currentLang==='hi' || currentLang==='hinglish' ? 0.92 : 0.98;
+    u.pitch=1.05;
+    u.volume=1;
+
+    const voices=synth.getVoices();
+    const locale=localeMap[currentLang].toLowerCase();
+    const preferred=voices.find((voice)=>{
+      const name=voice.name.toLowerCase();
+      const lang=voice.lang.toLowerCase();
+      return lang===locale && /female|zira|google hindi|heera|veena|lekha|sangeeta|kalpana|aarti|neerja/.test(name);
+    }) || voices.find((voice)=>voice.lang?.toLowerCase()===locale);
+
+    if(preferred) u.voice=preferred;
+    synth.speak(u);
   };
+
+  useEffect(()=>{
+    window.speechSynthesis?.getVoices();
+  },[]);
 
   const send=async(textOverride?:string)=>{
     const text=(textOverride ?? input).trim();
@@ -119,13 +136,13 @@ export const AIAssistant: React.FC<Props> = ({ currentLang, currentPage }) => {
         {loading && <div className='flex items-center gap-2 text-xs text-[#5e7164] px-2'><span className='w-2 h-2 rounded-full bg-[#1e5634] animate-pulse'/>Thinking…</div>}
       </div>
       <div className='px-3 pb-2 flex items-center justify-between text-[10px] text-[#6f8275]'>
-        <span>{lastProvider ? `Powered by ${lastProvider}` : 'AI + page-aware help'}</span>
+        <span>{lastProvider ? `${lastProvider === 'openai-web' ? 'OpenAI + Web' : lastProvider ? lastProvider : 'AI'}` : 'Hindi-first AI • Web-aware answers'}</span>
         <button onClick={()=>setMessages([])} className='underline hover:no-underline'>Clear</button>
       </div>
       <div className='p-3 border-t border-[#e5dec9] dark:border-[#294634]'>
         <div className='flex items-center gap-2'>
           <button onClick={listen} className={`w-10 h-10 rounded-xl flex items-center justify-center ${listening?'bg-[#f28b47] text-white':'bg-[#eef6ef] dark:bg-[#1d3427] text-[#1e5634]'}`} aria-label='Voice input'>{listening?<MicOff className='w-4 h-4'/>:<Mic className='w-4 h-4'/>}</button>
-          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void send();}} placeholder='Ask anything about Apna Anaj...' className='min-w-0 flex-1 px-3 py-2.5 rounded-xl border border-[#dce8df] dark:border-[#294634] bg-white dark:bg-[#122219] text-xs outline-none'/>
+          <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')void send();}} placeholder='पूछिए... मैं हिंदी में जवाब दूँगी' className='min-w-0 flex-1 px-3 py-2.5 rounded-xl border border-[#dce8df] dark:border-[#294634] bg-white dark:bg-[#122219] text-xs outline-none'/>
           <button onClick={()=>void send()} disabled={!input.trim()||loading} className='w-10 h-10 rounded-xl bg-[#1e5634] text-white flex items-center justify-center disabled:opacity-40' aria-label='Send'><Send className='w-4 h-4'/></button>
         </div>
       </div>
