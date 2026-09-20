@@ -120,8 +120,14 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
         ? value
         : null;
   });
-}
-
+        }
+         } catch {
+            products.forEach((product) => {
+           if (!(product.id in nextPrices)) {
+           nextPrices[product.id] = null;
+           }
+          });
+         }
       if (!cancelled) {
         setMandiPrices(nextPrices);
         setMandiLoading(false);
