@@ -123,16 +123,22 @@ export default function App() {
 
   const handleUpdateCart = (product: ProductItem, delta: number) => {
     setCart((prev) => {
-      const currentQty = prev[product.id]?.qty || 0;
+      const previous = prev[product.id];
+      const currentQty = previous?.qty || 0;
       const newQty = Math.max(0, currentQty + delta);
+
       if (newQty === 0) {
         const copy = { ...prev };
         delete copy[product.id];
         return copy;
       }
+
       return {
         ...prev,
-        [product.id]: { product, qty: newQty }
+        [product.id]: {
+          product: previous?.product || product,
+          qty: newQty
+        }
       };
     });
 
