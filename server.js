@@ -618,16 +618,16 @@ async function generateAssistantAnswer(message, page, language) {
   const errors = [];
 
   for (const [providerName, providerCall] of [
-    ["openai", callOpenAIWebAssistant],
     ["gemini", callGeminiAssistant],
+    ["openai", callOpenAIWebAssistant],
     ["openrouter", callOpenRouterAssistant]
   ]) {
     try {
       const answer = await providerCall(message, page, language);
       if (answer) return { answer, provider: providerName };
     } catch (error) {
-      errors.push(`${providerName}: ${error?.message || "request failed"}`);
-      console.error(`AI provider ${providerName} failed:`, error);
+      errors.push(String(providerName) + ": " + (error?.message || "request failed"));
+      console.error("AI provider " + providerName + " failed:", error);
     }
   }
 
