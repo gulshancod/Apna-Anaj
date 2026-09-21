@@ -637,26 +637,26 @@ export default function App() {
         </main>
       </div>
 
-      {/* Compact floating cart bar for buyers */}
+      {/* Floating Bottom Cart Bar for mobile & fast checkout */}
       {currentUser.role === 'buyer' && cartItemCount > 0 && !isCartOpen && (
-        <div className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[min(88%,560px)] bg-[#1e5634] text-white px-3 py-2.5 sm:px-4 sm:py-3 rounded-2xl shadow-xl z-40 flex items-center justify-between gap-2.5 border border-[#3b7e54]">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-[#f7c244] text-[#1f3427] flex items-center justify-center font-bold text-sm shrink-0">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[92%] max-w-lg bg-[#1e5634] text-white p-3 sm:p-4 rounded-2xl shadow-2xl z-40 flex items-center justify-between gap-3 animate-slideUp border border-[#3b7e54]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-[#f7c244] text-[#1f3427] flex items-center justify-center font-bold text-sm shrink-0">
               🛒
             </div>
-            <div className="min-w-0">
-              <div className="text-xs sm:text-sm font-bold truncate">
+            <div>
+              <div className="text-xs sm:text-sm font-bold">
                 {cartItemCount} Item{cartItemCount > 1 ? 's' : ''} • ₹{cartTotal}
               </div>
-              <div className="text-[9px] sm:text-[10px] text-white/80 truncate">
-                ⚡ 15-Min Express Delivery
+              <div className="text-[10px] text-white/80">
+                ⚡ 15-Min Express Doorstep Delivery
               </div>
             </div>
           </div>
 
           <button
             onClick={() => setIsCartOpen(true)}
-            className="shrink-0 px-3 py-1.5 rounded-lg bg-[#f7c244] hover:bg-[#e6b338] text-[#1f3427] text-[11px] sm:text-xs font-bold shadow-sm transition-all cursor-pointer"
+            className="px-3.5 py-2 rounded-xl bg-[#f7c244] hover:bg-[#e6b338] text-[#1f3427] text-xs font-bold shadow-sm transition-all cursor-pointer"
           >
             View Basket →
           </button>
