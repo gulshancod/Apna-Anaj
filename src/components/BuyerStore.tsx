@@ -408,7 +408,12 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
 
                     {currentQty === 0 ? (
                       <button
-                        onClick={() => onUpdateCart(pricedProduct, 1)}
+                        type="button"
+                        onClick={(event) => {
+                          event.preventDefault();
+                          event.stopPropagation();
+                          onUpdateCart(pricedProduct, 1);
+                        }}
                         className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg border-1.5 border-[#1e5634] bg-white dark:bg-[#15271e] text-[#1e5634] dark:text-[#4ade80] hover:bg-[#1e5634] hover:text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -421,7 +426,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            onUpdateCart(pricedProduct, -1);
+                            onUpdateCart({ ...prod, price: prod.price }, -1);
                           }}
                           className="w-7 h-7 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
                           aria-label="Decrease quantity"
@@ -431,10 +436,8 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => openPricePopup(prod.name)}
-                          className="px-2 text-xs font-bold min-w-[24px] text-center hover:text-[#f7c244] transition-colors cursor-pointer"
-                          title="View mandi price comparison"
-                          aria-label={`View mandi price comparison for ${prod.name}`}
+                          className="px-2 text-xs font-bold min-w-[24px] text-center cursor-default"
+                          aria-label="Current quantity"
                         >
                           {currentQty}
                         </button>
@@ -444,7 +447,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            onUpdateCart(pricedProduct, 1);
+                            onUpdateCart({ ...prod, price: prod.price }, 1);
                           }}
                           className="w-7 h-7 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
                           aria-label="Increase quantity"
