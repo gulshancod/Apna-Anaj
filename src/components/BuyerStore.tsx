@@ -409,8 +409,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     {currentQty === 0 ? (
                       <button
                         onClick={() => onUpdateCart(pricedProduct, 1)}
-                        className={`flex items-center gap-1 px-3.5 py-1.5 rounded-lg border-1.5 border-[#1e5634] bg-white dark:bg-[#15271e] text-[#1e5634] dark:text-[#4ade80] hover:bg-[#1e5634] hover:text-white text-xs font-bold shadow-sm transition-all ${isMandiAvailable ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'}`}
-                        disabled={!isMandiAvailable}
+                        className="flex items-center gap-1 px-3.5 py-1.5 rounded-lg border-1.5 border-[#1e5634] bg-white dark:bg-[#15271e] text-[#1e5634] dark:text-[#4ade80] hover:bg-[#1e5634] hover:text-white text-xs font-bold shadow-sm transition-all cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>ADD</span>
@@ -418,17 +417,22 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                     ) : (
                       <div className="flex items-center bg-[#1e5634] text-white rounded-lg p-0.5 shadow-sm">
                         <button
-                          onClick={() => onUpdateCart(pricedProduct, -1)}
-                          className="w-6 h-6 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onUpdateCart(pricedProduct, -1);
+                          }}
+                          className="w-7 h-7 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
                           aria-label="Decrease quantity"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Minus className="w-3.5 h-3.5" />
                         </button>
 
                         <button
                           type="button"
                           onClick={() => openPricePopup(prod.name)}
-                          className="px-2 text-xs font-bold min-w-[20px] text-center hover:text-[#f7c244] transition-colors cursor-pointer"
+                          className="px-2 text-xs font-bold min-w-[24px] text-center hover:text-[#f7c244] transition-colors cursor-pointer"
                           title="View mandi price comparison"
                           aria-label={`View mandi price comparison for ${prod.name}`}
                         >
@@ -436,11 +440,16 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                         </button>
 
                         <button
-                          onClick={() => onUpdateCart(pricedProduct, 1)}
-                          className="w-6 h-6 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onUpdateCart(pricedProduct, 1);
+                          }}
+                          className="w-7 h-7 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
                           aria-label="Increase quantity"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     )}
