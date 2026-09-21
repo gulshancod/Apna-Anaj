@@ -436,6 +436,58 @@ const AI_PAGE_DETAILS = {
   "view-orders": "Orders and Batches"
 };
 
+const AI_CROP_ALIASES = {
+  tomato: ["tomato", "tamatar"],
+  onion: ["onion", "pyaz", "pyaaz"],
+  potato: ["potato", "aloo", "alu"],
+  carrot: ["carrot", "gajar"],
+  rice: ["rice", "chawal", "paddy", "dhaan"],
+  wheat: ["wheat", "gehun", "gehu"],
+  maize: ["maize", "corn", "makka", "makkai"],
+  gram: ["gram", "chana", "chickpea"],
+  peas: ["peas", "matar", "green peas"],
+  cauliflower: ["cauliflower", "phool gobhi", "gobhi"],
+  cabbage: ["cabbage", "patta gobhi"],
+  brinjal: ["brinjal", "baingan", "eggplant"],
+  bhindi: ["bhindi", "okra", "ladies finger"],
+  cucumber: ["cucumber", "kheera", "cucumbar"],
+  capsicum: ["capsicum", "shimla mirch", "bell pepper"],
+  spinach: ["spinach", "palak"],
+  methi: ["methi", "fenugreek leaves"],
+  coriander: ["coriander", "dhaniya", "coriander leaves"],
+  garlic: ["garlic", "lahsun", "lehsun"],
+  ginger: ["ginger", "adrak"],
+  mango: ["mango", "aam"],
+  banana: ["banana", "kela"],
+  apple: ["apple", "seb"]
+};
+
+const AI_CROP_INFO = {
+  tomato: "Demand is influenced by season, weather, arrivals, local consumption, perishability, and price movement.",
+  onion: "Demand is influenced by household consumption, storage, arrivals, season, weather, and price movement.",
+  potato: "Demand is influenced by household use, processing demand, storage, arrivals, season, and prices.",
+  carrot: "Demand is influenced by season, local consumption, arrivals, weather, perishability, and prices.",
+  rice: "Demand is influenced by food consumption, procurement, season, supply, and market prices.",
+  wheat: "Demand is influenced by food consumption, procurement, season, supply, and market prices.",
+  maize: "Demand is influenced by food, feed, and industrial use, plus season, supply, and prices.",
+  gram: "Demand is influenced by household consumption, dal processing, arrivals, season, and prices.",
+  peas: "Demand is strongly seasonal and influenced by weather, arrivals, local consumption, and prices.",
+  cauliflower: "Demand is seasonal and influenced by weather, arrivals, local consumption, and prices.",
+  cabbage: "Demand is influenced by season, weather, arrivals, local consumption, and prices.",
+  brinjal: "Demand is influenced by local consumption, daily arrivals, weather, season, and prices.",
+  bhindi: "Demand is influenced by local consumption, season, weather, arrivals, and prices.",
+  cucumber: "Demand is influenced by season, weather, local consumption, arrivals, and prices.",
+  capsicum: "Demand is influenced by season, weather, restaurant demand, arrivals, and prices.",
+  spinach: "Demand is highly perishable and influenced by local consumption, weather, arrivals, and season.",
+  methi: "Demand is seasonal and influenced by weather, local consumption, arrivals, and prices.",
+  coriander: "Coriander leaves are highly perishable; demand is influenced by daily consumption, weather, arrivals, and season.",
+  garlic: "Demand is influenced by household consumption, storage, arrivals, season, and prices.",
+  ginger: "Demand is influenced by household consumption, food service demand, season, supply, and prices.",
+  mango: "Demand is strongly seasonal and influenced by variety, weather, arrivals, festival demand, and prices.",
+  banana: "Demand is relatively regular but still affected by arrivals, season, local consumption, and prices.",
+  apple: "Demand is influenced by season, supply, origin, storage availability, local consumption, and prices."
+};
+
 function getPageDetails(page) {
   return AI_PAGE_DETAILS[page] || "the current Apna Anaj page";
 }
@@ -448,25 +500,49 @@ function normalizeAssistantLanguage(value) {
   return AI_LANGUAGE_NAMES[raw] ? raw : "hi";
 }
 
+function detectAssistantCrop(message) {
+  const q = normalize(message).replace(/[^\p{L}\p{N}\s-]/gu, " ");
+  for (const [crop, aliases] of Object.entries(AI_CROP_ALIASES)) {
+    if (aliases.some((alias) => q.includes(normalize(alias)))) return crop;
+  }
+  return "";
+}
+
+function buildApnaAnajKnowledge() {
+  return [
+    "Apna Anaj is a farmer-to-buyer agricultural marketplace and decision-support web app.",
+    "Its goal is to help farmers understand market signals, plan selling, connect with buyers, pool quantities, and improve visibility of price and logistics information.",
+    "Main farmer workflow: Add Produce -> AI Demand Forecast -> Selling Recommendation -> Buyer Matching -> Quantity Pooling -> EV Pickup Route -> Price Transparency -> Orders/Batches.",
+    "AI Demand Forecast uses available market/mandi signals shown in the app. In the current implementation, the demand signal is derived from the farmer's expected rate compared with the current government mandi average. The displayed 7-day projection is a modelled reference based on the current mandi range, not a guaranteed future demand value.",
+    "Selling Recommendation explains options such as Sell Now, Join Pool, or Review Price using available market signals.",
+    "Buyer Matching considers crop, quantity, location, buyer demand, and offered price to explain a match.",
+    "Quantity Pooling lets multiple farmers combine produce quantities for larger buyer requirements.",
+    "EV Pickup Route represents logistics planning for pickup/delivery using an EV-oriented route concept.",
+    "Price Transparency shows price context so the farmer can understand how the offer relates to market information.",
+    "Buyer side includes a Fresh Store, basket/cart, orders, and live tracking.",
+    "The app supports farmer and buyer registration/login and a multi-language interface.",
+    "Never claim a forecast, price, buyer match, or delivery time is guaranteed."
+  ].join("\n");
+}
+
 function buildAssistantSystemPrompt(message, page, language) {
   const lang = normalizeAssistantLanguage(language);
-  const pageDetails = getPageDetails(page);
   return [
-    "You are Apna Anaj AI, a real conversational assistant for the Apna Anaj app.",
-    "Understand the user's actual question first. Do not force every question into the website or current-page context.",
-    "You may answer general knowledge questions, farming questions, technology questions, and questions about Apna Anaj.",
-    "Only discuss the current page when it is relevant to the user's question or when they ask about the page.",
-    "Never repeat generic page descriptions when the user asks a different topic.",
-    "Prefer accurate, direct answers. When current or changing facts are needed, use web search if available.",
-    "Never invent live prices, current events, current government data, account data, orders, or private information.",
-    "When discussing Apna Anaj features, use only the supplied feature context and clearly state when a feature is conceptual or unavailable.",
-    "Reply primarily in the requested language and match the user's language when they write in Hindi/Hinglish.",
-    "For Hindi, write natural Hindi in Devanagari. For Hinglish, use natural Roman Hindi.",
-    "Keep answers conversational, helpful, and easy to understand.",
-    "If the user asks a simple question, answer it simply. Do not add unrelated website details.",
-    `Requested language: ${AI_LANGUAGE_NAMES[lang] || "Hindi"}.`,
-    `Current page: ${pageDetails}.`,
-    `User message: ${message}`
+    "You are Apna Anaj AI, a helpful conversational assistant embedded in the Apna Anaj website.",
+    "Identify the user's actual intent first and answer that question directly.",
+    "Do not force unrelated questions into website or page context.",
+    "You can answer general farming, agriculture, crop, market, technology, and Apna Anaj questions.",
+    "Use the following Apna Anaj product knowledge as the canonical description:",
+    buildApnaAnajKnowledge(),
+    "For crop demand forecasting, explain HIGH/MEDIUM/LOW in simple farmer-friendly language.",
+    "When a user asks for a crop forecast by name, detect the crop. Do not invent a live numerical forecast. Use current app data when supplied; otherwise explain the relevant demand drivers and say that the exact live status requires the current data.",
+    "For factual or changing questions, use available current data or web search when available. Never invent current prices, government data, private account data, orders, or live events.",
+    "Use simple words and practical explanations. Avoid generic filler and repetitive page descriptions.",
+    "Language rule: English selected = answer in English. Hindi selected = answer in natural Devanagari Hindi. Hinglish selected = answer in natural Roman Hindi.",
+    "Selected language: " + (AI_LANGUAGE_NAMES[lang] || "Hindi"),
+    "Current page: " + getPageDetails(page),
+    "Detected crop: " + (detectAssistantCrop(message) || "none"),
+    "User question: " + message
   ].join("\n");
 }
 
@@ -578,40 +654,80 @@ async function callOpenRouterAssistant(message, page, language) {
 function buildLocalAssistantAnswer(message, page, language) {
   const lang = normalizeAssistantLanguage(language);
   const q = normalize(message);
+  const crop = detectAssistantCrop(message);
+
+  const websiteEN = "Apna Anaj is a farmer-to-buyer agricultural platform with crop listing, market and demand signals, selling guidance, buyer matching, quantity pooling, EV pickup planning, price transparency, orders and buyer tracking.";
+  const websiteHI = "Apna Anaj ek farmer-to-buyer agricultural platform hai. Isme crop listing, market aur demand signals, selling guidance, buyer matching, quantity pooling, EV pickup planning, price transparency, orders aur buyer tracking jaise features hain.";
+
+  const isForecast = q.includes("demand") && (
+    q.includes("forecast") || q.includes("prediction") || q.includes("future") ||
+    q.includes("kaise") || q.includes("how") || q.includes("hoga") || q.includes("hogī")
+  ) || q.includes("demand forecast") || q.includes("demand forecasting");
+
+  if (q.includes("what is apna anaj") || q.includes("apna anaj kya") || q.includes("website kya") || q.includes("app kya")) {
+    return lang === "en" ? websiteEN : websiteHI;
+  }
+
+  if (isForecast && crop) {
+    const cropName = crop.charAt(0).toUpperCase() + crop.slice(1);
+    const info = AI_CROP_INFO[crop] || "season, weather, arrivals, local consumption, supply, and prices.";
+    if (lang === "en") {
+      return cropName + " demand forecasting uses the available market signals for " + cropName + " and classifies the signal as HIGH, MEDIUM, or LOW. Important demand drivers are " + info + " The exact live result should come from current app data, so I will not invent a live value.";
+    }
+    return cropName + " ki demand forecasting available market signals ko dekhkar HIGH, MEDIUM ya LOW demand signal samajhti hai. Is crop ke important factors hain: " + info + " Exact live result current app data se hi bataya jana chahiye, isliye fake number nahi diya jayega.";
+  }
+
+  if (isForecast) {
+    return lang === "en"
+      ? "Apna Anaj demand forecasting uses available crop and market signals to give a HIGH, MEDIUM, or LOW demand signal. It helps farmers plan selling and market access; it is a decision-support signal, not a guaranteed future outcome."
+      : "Apna Anaj demand forecasting available crop aur market signals ke basis par HIGH, MEDIUM ya LOW demand signal deti hai. Isse farmer ko selling aur market planning me help milti hai; ye guaranteed future result nahi hai.";
+  }
 
   if (q.includes("buyer matching") || q.includes("matching")) {
     return lang === "en"
-      ? "Buyer Matching helps connect farmer produce with buyer requirements such as crop, quantity, location, and offer details."
-      : "Buyer Matching farmer ke produce ko buyer requirements se match karne mein help karta hai, jaise crop, quantity, location aur offer details.";
+      ? "Buyer Matching connects farmer produce with buyer requirements using crop, quantity, location, buyer demand, and offered price."
+      : "Buyer Matching farmer ke produce ko buyer ki requirement se connect karta hai, jisme crop, quantity, location, buyer demand aur offered price dekhe jate hain.";
   }
 
-  if (q.includes("demand forecast") || q.includes("forecast")) {
+  if (q.includes("quantity pooling") || q.includes("pooling") || q.includes("pool kaise")) {
     return lang === "en"
-      ? "AI Demand Forecast helps estimate demand direction for the selected crop so the farmer can plan selling."
-      : "AI Demand Forecast selected crop ki demand direction samajhne mein help karta hai, jisse farmer selling plan kar sake.";
+      ? "Quantity Pooling lets multiple farmers combine their produce quantities so a larger buyer requirement can be fulfilled together."
+      : "Quantity Pooling me multiple farmers apni produce quantity combine karte hain, jisse badi buyer requirement ko milkar fulfil kiya ja sakta hai.";
   }
 
-  if (q.includes("pool") || q.includes("pooling")) {
+  if (q.includes("selling recommendation") || q.includes("sell now") || q.includes("kab bechu") || q.includes("wait")) {
     return lang === "en"
-      ? "Quantity Pooling lets multiple farmers combine quantities to handle a larger buyer requirement."
-      : "Quantity Pooling mein multiple farmers apni quantity combine karke larger buyer requirement ko milkar fulfil kar sakte hain.";
+      ? "Selling Recommendation explains options such as Sell Now, Join Pool, or Review Price using the available market signals."
+      : "Selling Recommendation available market signals ke basis par Sell Now, Join Pool ya Review Price jaise options ko samjhata hai.";
   }
 
-  if (q.includes("sell now") || q.includes("selling recommendation")) {
+  if (q.includes("ev pickup") || q.includes("pickup route") || q.includes("delivery route")) {
     return lang === "en"
-      ? "Selling Recommendation helps compare Sell Now, Wait, and Join Pool using the available market and demand signals."
-      : "Selling Recommendation available market aur demand signals ke basis par Sell Now, Wait aur Join Pool options ko samajhne mein help karta hai.";
+      ? "EV Pickup Route is the logistics step for planning pickup movement from farmers toward buyers using an EV-oriented route concept."
+      : "EV Pickup Route farmer se buyer tak pickup movement ko EV-oriented route concept ke through plan karne wala logistics step hai.";
+  }
+
+  if (q.includes("price transparency") || q.includes("transparent price") || q.includes("price kaise")) {
+    return lang === "en"
+      ? "Price Transparency helps a farmer understand an offer in relation to available market-price information."
+      : "Price Transparency farmer ko available market-price information ke comparison me offer ko samajhne me help karta hai.";
+  }
+
+  if (q.includes("benefit") || q.includes("advantages") || q.includes("fayda")) {
+    return lang === "en"
+      ? "For farmers, Apna Anaj can help with market awareness, selling decisions, buyer discovery, quantity pooling, and clearer price and logistics information."
+      : "Farmer ke liye Apna Anaj market awareness, selling decision, buyer discovery, quantity pooling aur price/logistics ki clearer information me help kar sakta hai.";
   }
 
   if (q.includes("what is this page") || q.includes("ye page") || q.includes("is page")) {
     return lang === "en"
-      ? `This is the ${getPageDetails(page)} in Apna Anaj.`
-      : `Ye Apna Anaj ka ${getPageDetails(page)} hai.`;
+      ? "This is the " + getPageDetails(page) + " in Apna Anaj."
+      : "Ye Apna Anaj ka " + getPageDetails(page) + " hai.";
   }
 
   return lang === "en"
-    ? "I am connected to Apna Anaj. You can ask me general questions or ask about a specific app feature."
-    : "Main Apna Anaj se connected hoon. Aap general question ya kisi specific app feature ke baare mein pooch sakte ho.";
+    ? "You can ask me about Apna Anaj, demand forecasting, any crop, selling, buyer matching, quantity pooling, market concepts, or general farming."
+    : "Aap mujhse Apna Anaj, demand forecasting, kisi bhi crop, selling, buyer matching, quantity pooling, market concepts ya general farming ke baare me pooch sakte ho.";
 }
 
 async function generateAssistantAnswer(message, page, language) {
