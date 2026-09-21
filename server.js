@@ -437,29 +437,38 @@ const AI_PAGE_DETAILS = {
 };
 
 const AI_CROP_ALIASES = {
-  tomato: ["tomato", "tamatar"],
-  onion: ["onion", "pyaz", "pyaaz"],
-  potato: ["potato", "aloo", "alu"],
-  carrot: ["carrot", "gajar"],
-  rice: ["rice", "chawal", "paddy", "dhaan"],
-  wheat: ["wheat", "gehun", "gehu"],
-  maize: ["maize", "corn", "makka", "makkai"],
-  gram: ["gram", "chana", "chickpea"],
-  peas: ["peas", "matar", "green peas"],
-  cauliflower: ["cauliflower", "phool gobhi", "gobhi"],
-  cabbage: ["cabbage", "patta gobhi"],
-  brinjal: ["brinjal", "baingan", "eggplant"],
-  bhindi: ["bhindi", "okra", "ladies finger"],
-  cucumber: ["cucumber", "kheera", "cucumbar"],
-  capsicum: ["capsicum", "shimla mirch", "bell pepper"],
-  spinach: ["spinach", "palak"],
-  methi: ["methi", "fenugreek leaves"],
-  coriander: ["coriander", "dhaniya", "coriander leaves"],
-  garlic: ["garlic", "lahsun", "lehsun"],
-  ginger: ["ginger", "adrak"],
-  mango: ["mango", "aam"],
-  banana: ["banana", "kela"],
-  apple: ["apple", "seb"]
+  tomato: ["tomato", "tamatar", "टमाटर"],
+  onion: ["onion", "pyaz", "pyaaz", "प्याज", "प्याज़"],
+  potato: ["potato", "aloo", "alu", "आलू"],
+  carrot: ["carrot", "gajar", "गाजर"],
+  rice: ["rice", "chawal", "paddy", "dhaan", "चावल", "धान"],
+  wheat: ["wheat", "gehun", "gehu", "गेहूं", "गेहूँ"],
+  maize: ["maize", "corn", "makka", "makkai", "मक्का"],
+  gram: ["gram", "chana", "chickpea", "चना"],
+  peas: ["peas", "matar", "green peas", "मटर"],
+  cauliflower: ["cauliflower", "phool gobhi", "gobhi", "फूलगोभी", "गोभी"],
+  cabbage: ["cabbage", "patta gobhi", "पत्तागोभी"],
+  brinjal: ["brinjal", "baingan", "eggplant", "बैंगन"],
+  bhindi: ["bhindi", "okra", "ladies finger", "भिंडी"],
+  cucumber: ["cucumber", "kheera", "cucumbar", "खीरा"],
+  capsicum: ["capsicum", "shimla mirch", "bell pepper", "शिमला मिर्च"],
+  spinach: ["spinach", "palak", "पालक"],
+  methi: ["methi", "fenugreek leaves", "मेथी"],
+  coriander: ["coriander", "dhaniya", "coriander leaves", "धनिया"],
+  garlic: ["garlic", "lahsun", "lehsun", "लहसुन"],
+  ginger: ["ginger", "adrak", "अदरक"],
+  mango: ["mango", "aam", "आम"],
+  banana: ["banana", "kela", "केला"],
+  apple: ["apple", "seb", "सेब"],
+  mustard: ["mustard", "sarson", "सरसों"],
+  lentil: ["lentil", "masoor", "मसूर"],
+  okra: ["okra", "bhindi", "भिंडी"],
+  pumpkin: ["pumpkin", "kaddu", "कद्दू"],
+  bitter_gourd: ["bitter gourd", "karela", "करेला"],
+  bottle_gourd: ["bottle gourd", "lauki", "लौकी"],
+  radish: ["radish", "mooli", "मूली"],
+  turnip: ["turnip", "shalgam", "शलजम"],
+  sweet_potato: ["sweet potato", "shakarkand", "शकरकंद"]
 };
 
 const AI_CROP_INFO = {
@@ -1153,81 +1162,100 @@ function buildLocalAssistantAnswer(message, page, language) {
   const q = normalize(message);
   const crop = detectAssistantCrop(message);
 
-  const websiteEN = "Apna Anaj is a farmer-to-buyer agricultural platform with crop listing, market and demand signals, selling guidance, buyer matching, quantity pooling, EV pickup planning, price transparency, orders and buyer tracking.";
-  const websiteHI = "Apna Anaj ek farmer-to-buyer agricultural platform hai. Isme crop listing, market aur demand signals, selling guidance, buyer matching, quantity pooling, EV pickup planning, price transparency, orders aur buyer tracking jaise features hain.";
+  const websiteEN = "Apna Anaj is a farmer-to-buyer agricultural platform. It helps farmers list produce, understand market and demand signals, get selling guidance, find buyer matches, pool quantities, plan EV pickup, understand price context, and track orders.";
+  const websiteHI = "Apna Anaj ek farmer-to-buyer agricultural platform hai. Isme farmer produce list kar sakta hai, market aur demand signals samajh sakta hai, selling guidance le sakta hai, buyers se match ho sakta hai, quantity pool kar sakta hai, EV pickup plan kar sakta hai, price context dekh sakta hai aur orders track kar sakta hai.";
 
-  const isForecast = q.includes("demand") && (
-    q.includes("forecast") || q.includes("prediction") || q.includes("future") ||
-    q.includes("kaise") || q.includes("how") || q.includes("hoga") || q.includes("hogī")
-  ) || q.includes("demand forecast") || q.includes("demand forecasting");
+  const isForecast =
+    /demand\\s*(forecast|forecasting|prediction)/i.test(q) ||
+    /forecast/i.test(q) ||
+    /फोरकास्ट|फोरकास्टिंग|पूर्वानुमान|मांग.*बताओ|डिमांड.*बताओ|डिमांड.*फोरकास्ट|मांग.*पूर्वानुमान/.test(q) ||
+    (/demand|मांग|डिमांड/.test(q) && /how|kaise|कैसे|hoga|hogi|होगा|होगी|बताओ|बताo|what|kya|क्या/.test(q));
 
-  if (q.includes("what is apna anaj") || q.includes("apna anaj kya") || q.includes("website kya") || q.includes("app kya")) {
-    return lang === "en" ? websiteEN : websiteHI;
-  }
+  const asksBenefits =
+    /benefit|benefits|advantage|advantages|fayda|faayda|फायदा|लाभ|benefit.*farmer|किसान.*फायदा|farmer.*benefit/i.test(q);
+
+  const asksWebsite =
+    /what is apna anaj|apna anaj kya|apna anaj.*website|website kya|website.*kya|app kya|platform kya|पना अनाज क्या|अपना अनाज क्या|वेबसाइट क्या|ऐप क्या|प्लेटफॉर्म क्या/.test(q);
+
+  const asksHow =
+    /how.*work|how.*forecast|kaise.*work|kaise.*forecast|कैसे काम|कैसे होता|कैसे काम करता|कैसे काम करती|कैसे होता है/.test(q);
+
+  const asksMatching = /buyer matching|matching|बायर मैचिंग|बायर से मैच|खरीदार.*मिल|खरीदार.*मैच/.test(q);
+  const asksPooling = /quantity pooling|pooling|pool kaise|पूलिंग|क्वांटिटी पूल|मात्रा.*मिल/.test(q);
+  const asksSelling = /selling recommendation|sell now|kab bechu|कब बेच|बेचना.*कब|sell.*now|सेल.*नाउ/.test(q);
+  const asksRoute = /ev pickup|pickup route|delivery route|ईवी.*पिकअप|पिकअप.*रूट|डिलीवरी.*रूट/.test(q);
+  const asksTransparency = /price transparency|transparent price|price kaise|प्राइस.*ट्रांसपेरेंसी|कीमत.*पारदर्श|दाम.*कैसे/.test(q);
+
+  if (asksWebsite) return lang === "en" ? websiteEN : websiteHI;
 
   if (isForecast && crop) {
-    const cropName = crop.charAt(0).toUpperCase() + crop.slice(1);
+    const cropName = crop.replace(/_/g, " ").replace(/\\b\\w/g, (m) => m.toUpperCase());
     const info = AI_CROP_INFO[crop] || "season, weather, arrivals, local consumption, supply, and prices.";
     if (lang === "en") {
-      return cropName + " demand forecasting uses the available market signals for " + cropName + " and classifies the signal as HIGH, MEDIUM, or LOW. Important demand drivers are " + info + " The exact live result should come from current app data, so I will not invent a live value.";
+      return `${cropName} demand forecast: the app should evaluate the available ${cropName} market signals and classify demand as HIGH, MEDIUM, or LOW. For ${cropName}, key factors are ${info} A live HIGH/MEDIUM/LOW result must come from the current data; this fallback does not invent a live value.`;
     }
-    return cropName + " ki demand forecasting available market signals ko dekhkar HIGH, MEDIUM ya LOW demand signal samajhti hai. Is crop ke important factors hain: " + info + " Exact live result current app data se hi bataya jana chahiye, isliye fake number nahi diya jayega.";
+    if (lang === "hi") {
+      return `${cropName} की डिमांड फोरकास्ट: ऐप उपलब्ध ${cropName} के market signals को देखकर demand को HIGH, MEDIUM या LOW के रूप में समझाता है। ${cropName} के लिए मुख्य factors हैं: ${info} Exact live HIGH/MEDIUM/LOW result current data से ही बताया जाना चाहिए; fallback fake live value नहीं बनाएगा।`;
+    }
+    return `${cropName} ki demand forecast: app available ${cropName} market signals ko dekhkar demand ko HIGH, MEDIUM ya LOW samjhata hai. ${cropName} ke main factors hain: ${info} Exact live HIGH/MEDIUM/LOW result current data se hi aayega; fallback fake live value nahi banayega.`;
   }
 
   if (isForecast) {
     return lang === "en"
-      ? "Apna Anaj demand forecasting uses available crop and market signals to give a HIGH, MEDIUM, or LOW demand signal. It helps farmers plan selling and market access; it is a decision-support signal, not a guaranteed future outcome."
-      : "Apna Anaj demand forecasting available crop aur market signals ke basis par HIGH, MEDIUM ya LOW demand signal deti hai. Isse farmer ko selling aur market planning me help milti hai; ye guaranteed future result nahi hai.";
+      ? "Demand forecasting in Apna Anaj uses available crop and market signals to explain whether demand is HIGH, MEDIUM, or LOW. It helps farmers plan selling and market access; it is not a guaranteed future result."
+      : lang === "hi"
+      ? "Apna Anaj me demand forecasting available crop aur market signals ke basis par demand ko HIGH, MEDIUM ya LOW ke roop me samjhati hai. Isse farmer ko selling aur market planning me help milti hai; ye guaranteed future result nahi hai."
+      : "Apna Anaj me demand forecasting available crop aur market signals se demand ko HIGH, MEDIUM ya LOW samajhti hai. Isse farmer ko selling aur market planning me help milti hai; ye guaranteed future result nahi hai.";
   }
 
-  if (q.includes("buyer matching") || q.includes("matching")) {
+  if (asksBenefits) {
     return lang === "en"
-      ? "Buyer Matching connects farmer produce with buyer requirements using crop, quantity, location, buyer demand, and offered price."
-      : "Buyer Matching farmer ke produce ko buyer ki requirement se connect karta hai, jisme crop, quantity, location, buyer demand aur offered price dekhe jate hain.";
+      ? "Farmer benefits include better market awareness, clearer selling decisions, buyer discovery, quantity pooling for larger requirements, price visibility, and logistics planning."
+      : lang === "hi"
+      ? "Farmer ko better market awareness, selling decision me clarity, buyer dhoondhne me help, badi quantity ke liye pooling, price visibility aur logistics planning ka benefit mil sakta hai."
+      : "Farmer ko better market awareness, selling decision me clarity, buyer discovery, quantity pooling, price visibility aur logistics planning me help mil sakti hai.";
   }
 
-  if (q.includes("quantity pooling") || q.includes("pooling") || q.includes("pool kaise")) {
+  if (asksMatching) {
     return lang === "en"
-      ? "Quantity Pooling lets multiple farmers combine their produce quantities so a larger buyer requirement can be fulfilled together."
-      : "Quantity Pooling me multiple farmers apni produce quantity combine karte hain, jisse badi buyer requirement ko milkar fulfil kiya ja sakta hai.";
+      ? "Buyer Matching checks crop, quantity, location, buyer demand, and offered price to explain which buyer requirement fits the farmer's produce."
+      : "Buyer Matching crop, quantity, location, buyer demand aur offered price ko dekhkar farmer ke produce ko suitable buyer requirement se match karne me help karta hai.";
   }
 
-  if (q.includes("selling recommendation") || q.includes("sell now") || q.includes("kab bechu") || q.includes("wait")) {
+  if (asksPooling) {
+    return lang === "en"
+      ? "Quantity Pooling lets multiple farmers combine their quantities so a larger buyer requirement can be fulfilled together."
+      : "Quantity Pooling me multiple farmers apni quantities combine kar sakte hain, jisse badi buyer requirement ko milkar fulfil kiya ja sakta hai.";
+  }
+
+  if (asksSelling) {
     return lang === "en"
       ? "Selling Recommendation explains options such as Sell Now, Join Pool, or Review Price using the available market signals."
-      : "Selling Recommendation available market signals ke basis par Sell Now, Join Pool ya Review Price jaise options ko samjhata hai.";
+      : "Selling Recommendation available market signals ke basis par Sell Now, Join Pool ya Review Price jaise options ko explain karta hai.";
   }
 
-  if (q.includes("ev pickup") || q.includes("pickup route") || q.includes("delivery route")) {
+  if (asksRoute) {
     return lang === "en"
-      ? "EV Pickup Route is the logistics step for planning pickup movement from farmers toward buyers using an EV-oriented route concept."
-      : "EV Pickup Route farmer se buyer tak pickup movement ko EV-oriented route concept ke through plan karne wala logistics step hai.";
+      ? "EV Pickup Route is the logistics step for planning produce pickup movement from farmers toward buyers using an EV-oriented route concept."
+      : "EV Pickup Route farmer se buyer tak produce pickup ko EV-oriented route concept ke through plan karne wala logistics step hai.";
   }
 
-  if (q.includes("price transparency") || q.includes("transparent price") || q.includes("price kaise")) {
+  if (asksTransparency) {
     return lang === "en"
-      ? "Price Transparency helps a farmer understand an offer in relation to available market-price information."
+      ? "Price Transparency helps farmers understand an offer compared with the available market-price information."
       : "Price Transparency farmer ko available market-price information ke comparison me offer ko samajhne me help karta hai.";
   }
 
-  if (q.includes("benefit") || q.includes("advantages") || q.includes("fayda")) {
+  if (asksHow) {
     return lang === "en"
-      ? "For farmers, Apna Anaj can help with market awareness, selling decisions, buyer discovery, quantity pooling, and clearer price and logistics information."
-      : "Farmer ke liye Apna Anaj market awareness, selling decision, buyer discovery, quantity pooling aur price/logistics ki clearer information me help kar sakta hai.";
-  }
-
-  if (q.includes("what is this page") || q.includes("ye page") || q.includes("is page")) {
-    return lang === "en"
-      ? "This is the " + getPageDetails(page) + " in Apna Anaj."
-      : "Ye Apna Anaj ka " + getPageDetails(page) + " hai.";
+      ? "Apna Anaj reads the available market signals, combines them with the feature logic, and explains the result in simple farmer-friendly language."
+      : "Apna Anaj available market signals ko read karta hai, feature ki logic ke saath analyse karta hai aur result ko simple farmer-friendly language me explain karta hai.";
   }
 
   return lang === "en"
-    ? "You can ask me about Apna Anaj, demand forecasting, any crop, selling, buyer matching, quantity pooling, market concepts, or general farming."
-    : "Aap mujhse Apna Anaj, demand forecasting, kisi bhi crop, selling, buyer matching, quantity pooling, market concepts ya general farming ke baare me pooch sakte ho.";
-}
-
-async function generateAssistantAnswer(message, page, language) {
+    ? "I can answer questions about Apna Anaj, demand forecasting, any crop, selling, buyer matching, quantity pooling, prices, logistics, and general farming."
+    : "Aap mujhse Apna Anaj, demand forecasting, kisi bhi crop, selling, buyer matching, quantity pooling, prices, logistics aur general farming ke baare me sawal pooch sakte ho.";
+}\n\nasync function generateAssistantAnswer(message, page, language) {
   const errors = [];
 
   for (const [providerName, providerCall] of [
