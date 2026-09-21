@@ -617,17 +617,17 @@ function buildLocalAssistantAnswer(message, page, language) {
 async function generateAssistantAnswer(message, page, language) {
   const errors = [];
 
-  for (const provider of [
+  for (const [providerName, providerCall] of [
     ["openai", callOpenAIWebAssistant],
     ["gemini", callGeminiAssistant],
     ["openrouter", callOpenRouterAssistant]
   ]) {
     try {
-      const answer = await provider[1](message, page, language);
-      if (answer) return { answer, provider: provider[0] };
+      const answer = await providerCall(message, page, language);
+      if (answer) return { answer, provider: providerName };
     } catch (error) {
-      errors.push(`${provider[0]}: ${error?.message || "request failed"}`);
-      console.error(`AI provider ${provider[0]} failed:`, error);
+      errors.push(`${providerName}: ${error?.message || "request failed"}`);
+      console.error(`AI provider ${providerName} failed:`, error);
     }
   }
 
