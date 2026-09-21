@@ -483,6 +483,503 @@ const AI_CROP_INFO = {
   coriander: "Coriander leaves are highly perishable; demand is influenced by daily consumption, weather, arrivals, and season.",
   garlic: "Demand is influenced by household consumption, storage, arrivals, season, and prices.",
   ginger: "Demand is influenced by household consumption, food service demand, season, supply, and prices.",
+  mango: "Demand is strongly seasonal and influenced by variety, weather, arrivals, and prices.",
+  banana: "Demand is influenced by arrivals, season, local consumption, perishability, and prices.",
+  apple: "Demand is influenced by season, supply, origin, storage availability, local consumption, and prices.",
+  mustard: "Demand is influenced by oilseed processing demand, seasonal supply, arrivals, procurement, and prices.",
+  lentil: "Demand is influenced by household consumption, dal processing, seasonal supply, arrivals, and prices.",
+  okra: "Demand is influenced by local consumption, season, weather, arrivals, perishability, and prices.",
+  pumpkin: "Demand is influenced by local consumption, season, arrivals, storage, and prices.",
+  bitter_gourd: "Demand is influenced by season, weather, local consumption, arrivals, perishability, and prices.",
+  bottle_gourd: "Demand is influenced by season, weather, local consumption, arrivals, perishability, and prices.",
+  radish: "Demand is influenced by season, weather, local consumption, arrivals, perishability, and prices.",
+  turnip: "Demand is influenced by season, weather, local consumption, arrivals, perishability, and prices.",
+  sweet_potato: "Demand is influenced by season, household consumption, arrivals, storage, and prices."
+};port express from "express";
+import dotenv from "dotenv";
+import { connectMongoDB, getMongoDB, isMongoConnected } from "./server/db.js";
+import { registerUser, loginUser, getUserFromToken, logoutUser } from "./server/auth.js";
+
+dotenv.config();
+
+const app = express();
+
+app.use(express.json());
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin || "";
+
+  const isAllowedOrigin =
+    origin === "http://localhost:3000" ||
+    origin === "http://localhost:5173" ||
+    origin === "https://apna-anaj.vercel.app" ||
+    /^https:\/\/[^/]+-gulshancod\.vercel\.app$/.test(origin);
+
+  if (isAllowedOrigin) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Vary", "Origin");
+  }
+
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+  );
+  res.header("Access-Control-Max-Age", "86400");
+
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+
+  next();
+});
+
+const PORT = process.env.PORT || 5000;
+const DATA_GOV_API_KEY = process.env.DATA_GOV_API_KEY;
+const RESOURCE_ID = "9ef84268-d588-465a-a308-a864a43d0070";
+const API_URL = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
+
+const CROP_ALIASES = {
+  wheat: ["Wheat", "Gehu"],
+  rice: ["Rice", "Paddy(Common)"],
+  gram: ["Bengal Gram(Gram)(Whole)"],
+  bajra: ["Bajra(Pearl Millet/Cumbu)"],
+  tomato: ["Tomato"],
+  onion: ["Onion"],
+  potato: ["Potato"],
+  bhindi: ["Bhindi(Ladies Finger)"],
+  carrot: ["Carrot"],
+  peas: ["Green Peas"],
+  capsicum: ["Capsicum"],
+  "bottle gourd": ["Bottle gourd"],
+  brinjal: ["Brinjal"],
+  cucumber: ["Cucumbar(Kheera)"],
+  cauliflower: ["Cauliflower"],
+  spinach: ["Spinach"],
+  methi: ["Methi"],
+  coriander: ["Coriander(Leaves)"],
+  mango: ["Mango"],
+  milk: ["Milk"],
+  garlic: ["Garlic"]
+};
+
+const DEMO_MARKET_DATA = {
+  milk: {
+    average: 44,
+    lowest: 40,
+    highest: 48
+  }
+};
+
+const GOV_CACHE_TTL_MS = 15 * 60 * 1000;
+const GOV_REQUEST_GAP_MS = 800;
+const govCache = new Map();
+const govInflight = new Map();
+
+function normalize(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function getCropNames(crop) {
+  const key = normalize(crop);
+  return CROP_ALIASES[key] || [crop];
+}
+
+function getField(row, names) {
+  for (const name of names) {
+    if (row[name] !== undefined && row[name] !== null) {
+      return row[name];
+    }
+  }
+  return "";
+}
+
+function formatMarketData(records) {
+  return records.map((row) => {
+    const minPrice =
+      Number(getField(row, ["min_price", "Min_x0020_Price", "Min Price"])) || 0;
+    const maxPrice =
+      Number(getField(row, ["max_price", "Max_x0020_Price", "Max Price"])) || 0;
+    const modalPrice =
+      Number(getField(row, ["modal_price", "Modal_x0020_Price", "Modal Price"])) || 0;
+
+    return {
+      state: getField(row, ["state", "State"]),
+      district: getField(row, ["district", "District"]),
+      market: getField(row, ["market", "Market"]),
+      commodity: getField(row, ["commodity", "Commodity"]),
+      variety: getField(row, ["variety", "Variety"]),
+      grade: getField(row, ["grade", "Grade"]),
+      arrivalDate: getField(row, ["arrival_date", "Arrival_Date", "Arrival Date"]),
+      minPrice,
+      maxPrice,
+      modalPrice,
+      minPricePerKg: Number((minPrice / 100).toFixed(2)),
+      maxPricePerKg: Number((maxPrice / 100).toFixed(2)),
+      modalPricePerKg: Number((modalPrice / 100).toFixed(2))
+    };
+  });
+}
+
+async function sleep(ms) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchGovernmentData(crop) {
+  const cacheKey = normalize(crop);
+  const cached = govCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < GOV_CACHE_TTL_MS) {
+    return cached.records;
+  }
+
+  const existingRequest = govInflight.get(cacheKey);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  if (!DATA_GOV_API_KEY) {
+    throw new Error("DATA_GOV_API_KEY missing in .env");
+  }
+
+  const requestPromise = (async () => {
+    const cropNames = getCropNames(crop);
+    let allRecords = [];
+
+    for (const cropName of cropNames) {
+      const params = new URLSearchParams({
+        "api-key": DATA_GOV_API_KEY,
+        format: "json",
+        limit: "1000",
+        "filters[commodity]": cropName
+      });
+
+      const url = `${API_URL}?${params.toString()}`;
+      let response = null;
+      let lastError = null;
+
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          if (attempt > 0) {
+            await sleep(Math.min(2000 * attempt, 5000));
+          }
+
+          response = await fetch(url);
+
+          if (response.ok) {
+            break;
+          }
+
+          if (response.status === 429) {
+            const retryAfter = Number(response.headers.get("retry-after"));
+            const waitMs =
+              Number.isFinite(retryAfter) && retryAfter > 0
+                ? Math.min(retryAfter * 1000, 10000)
+                : 2000 * (attempt + 1);
+
+            await sleep(waitMs);
+            continue;
+          }
+
+          lastError = new Error(`Government API error: ${response.status}`);
+          break;
+        } catch (error) {
+          lastError = error;
+
+          if (attempt < 2) {
+            await sleep(1000 * (attempt + 1));
+          }
+        }
+      }
+
+      if (!response?.ok) {
+        throw lastError || new Error("Government API request failed");
+      }
+
+      const result = await response.json();
+
+      if (Array.isArray(result.records)) {
+        allRecords = allRecords.concat(result.records);
+      }
+
+      if (cropNames.length > 1) {
+        await sleep(GOV_REQUEST_GAP_MS);
+      }
+    }
+
+    const uniqueRecords = Array.from(
+      new Map(allRecords.map((row) => [JSON.stringify(row), row])).values()
+    );
+
+    govCache.set(cacheKey, {
+      timestamp: Date.now(),
+      records: uniqueRecords
+    });
+
+    return uniqueRecords;
+  })();
+
+  govInflight.set(cacheKey, requestPromise);
+
+  try {
+    return await requestPromise;
+  } finally {
+    govInflight.delete(cacheKey);
+  }
+}
+
+function buildMarketSummary(crop, records) {
+  const marketData = formatMarketData(records);
+
+  const prices = marketData
+    .map((row) => Number(row.modalPrice))
+    .filter((price) => Number.isFinite(price) && price >= 100);
+
+  if (!prices.length) {
+    return null;
+  }
+
+  const average = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+  const lowest = Math.min(...prices);
+  const highest = Math.max(...prices);
+  const markets = new Set(
+    marketData.map((row) => row.market).filter(Boolean)
+  );
+
+  return {
+    success: true,
+    availableData: true,
+    isDemoData: false,
+    source: "Government of India - AGMARKNET",
+    sourceType: "Live Government API",
+    crop,
+    markets: markets.size,
+    records: prices.length,
+    priceUnit: "₹/Quintal",
+    averageModalPrice: Math.round(average),
+    lowestModalPrice: lowest,
+    highestModalPrice: highest,
+    priceUnitPerKg: "₹/KG",
+    averageModalPricePerKg: Number((average / 100).toFixed(2)),
+    lowestModalPricePerKg: Number((lowest / 100).toFixed(2)),
+    highestModalPricePerKg: Number((highest / 100).toFixed(2))
+  };
+}
+
+function getDemoSummary(crop) {
+  const demo = DEMO_MARKET_DATA[crop];
+
+  if (!demo) {
+    return null;
+  }
+
+  return {
+    success: true,
+    availableData: true,
+    isDemoData: true,
+    source: "ApnaAnaj Demo Reference Data",
+    sourceType: "Demo",
+    crop,
+    markets: 0,
+    records: 1,
+    priceUnit: "₹/KG",
+    averageModalPricePerKg: demo.average,
+    lowestModalPricePerKg: demo.lowest,
+    highestModalPricePerKg: demo.highest
+  };
+}
+
+function getBearerToken(req) {
+  const header = String(req.headers.authorization || "");
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+}
+
+function requireMongo(req, res, next) {
+  if (!process.env.MONGODB_URI || !isMongoConnected()) {
+    return res.status(503).json({
+      success: false,
+      message: "Database is not connected. Configure MONGODB_URI on the backend."
+    });
+  }
+  next();
+}
+
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { role, name, phone, email, password, farm, location, address } = req.body || {};
+
+    if (!process.env.MONGODB_URI) {
+      return res.status(503).json({
+        success: false,
+        message: "MongoDB is not configured on the backend."
+      });
+    }
+
+    await connectMongoDB();
+
+    const session = await registerUser({
+      role,
+      name,
+      phone,
+      email,
+      password,
+      farm,
+      location,
+      address
+    });
+
+    return res.status(201).json({ success: true, ...session });
+  } catch (error) {
+    console.error("Registration error:", error);
+    const duplicate = /already exists/i.test(error.message);
+    return res.status(duplicate ? 409 : 400).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { role, identifier, password } = req.body || {};
+
+    if (!process.env.MONGODB_URI) {
+      return res.status(503).json({
+        success: false,
+        message: "MongoDB is not configured on the backend."
+      });
+    }
+
+    await connectMongoDB();
+    const session = await loginUser(identifier, password, role);
+
+    return res.json({ success: true, ...session });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(401).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+app.get("/api/auth/me", requireMongo, async (req, res) => {
+  try {
+    const user = await getUserFromToken(getBearerToken(req));
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please log in again."
+      });
+    }
+
+    return res.json({ success: true, user });
+  } catch (error) {
+    console.error("Session check error:", error);
+    return res.status(401).json({
+      success: false,
+      message: "Unable to restore your session."
+    });
+  }
+});
+
+app.post("/api/auth/logout", requireMongo, async (req, res) => {
+  try {
+    await logoutUser(getBearerToken(req));
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Logout error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to log out."
+    });
+  }
+});
+
+
+
+const AI_LANGUAGE_NAMES = {
+  en: "English",
+  hinglish: "Hinglish",
+  hi: "Hindi",
+  mr: "Marathi",
+  pa: "Punjabi",
+  gu: "Gujarati",
+  bn: "Bengali",
+  te: "Telugu",
+  ta: "Tamil",
+  kn: "Kannada"
+};
+
+const AI_PAGE_DETAILS = {
+  "view-welcome": "Welcome/Home page",
+  "view-farmer-reg": "Farmer registration page",
+  "view-buyer-reg": "Buyer registration page",
+  "view-auth": "Login page",
+  "view-buyer-store": "Buyer Fresh Store",
+  "view-buyer-tracking": "Buyer Live Tracking",
+  "view-farmer-dash": "Farmer Dashboard",
+  "view-add-produce": "Add Produce",
+  "view-demand-forecast": "AI Demand Forecast",
+  "view-selling-rec": "Selling Recommendation",
+  "view-matching": "Buyer Matching",
+  "view-pooling": "Quantity Pooling",
+  "view-route": "EV Pickup Route",
+  "view-transparency": "Price Transparency",
+  "view-orders": "Orders and Batches"
+};
+
+const AI_CROP_ALIASES = {
+  tomato: ["tomato", "tamatar"],
+  onion: ["onion", "pyaz", "pyaaz"],
+  potato: ["potato", "aloo", "alu"],
+  carrot: ["carrot", "gajar"],
+  rice: ["rice", "chawal", "paddy", "dhaan"],
+  wheat: ["wheat", "gehun", "gehu"],
+  maize: ["maize", "corn", "makka", "makkai"],
+  gram: ["gram", "chana", "chickpea"],
+  peas: ["peas", "matar", "green peas"],
+  cauliflower: ["cauliflower", "phool gobhi", "gobhi"],
+  cabbage: ["cabbage", "patta gobhi"],
+  brinjal: ["brinjal", "baingan", "eggplant"],
+  bhindi: ["bhindi", "okra", "ladies finger"],
+  cucumber: ["cucumber", "kheera", "cucumbar"],
+  capsicum: ["capsicum", "shimla mirch", "bell pepper"],
+  spinach: ["spinach", "palak"],
+  methi: ["methi", "fenugreek leaves"],
+  coriander: ["coriander", "dhaniya", "coriander leaves"],
+  garlic: ["garlic", "lahsun", "lehsun"],
+  ginger: ["ginger", "adrak"],
+  mango: ["mango", "aam"],
+  banana: ["banana", "kela"],
+  apple: ["apple", "seb"]
+};
+
+const AI_CROP_INFO = {
+  tomato: "Demand is influenced by season, weather, arrivals, local consumption, perishability, and price movement.",
+  onion: "Demand is influenced by household consumption, storage, arrivals, season, weather, and price movement.",
+  potato: "Demand is influenced by household use, processing demand, storage, arrivals, season, and prices.",
+  carrot: "Demand is influenced by season, local consumption, arrivals, weather, perishability, and prices.",
+  rice: "Demand is influenced by food consumption, procurement, season, supply, and market prices.",
+  wheat: "Demand is influenced by food consumption, procurement, season, supply, and market prices.",
+  maize: "Demand is influenced by food, feed, and industrial use, plus season, supply, and prices.",
+  gram: "Demand is influenced by household consumption, dal processing, arrivals, season, and prices.",
+  peas: "Demand is strongly seasonal and influenced by weather, arrivals, local consumption, and prices.",
+  cauliflower: "Demand is seasonal and influenced by weather, arrivals, local consumption, and prices.",
+  cabbage: "Demand is influenced by season, weather, arrivals, local consumption, and prices.",
+  brinjal: "Demand is influenced by local consumption, daily arrivals, weather, season, and prices.",
+  bhindi: "Demand is influenced by local consumption, season, weather, arrivals, and prices.",
+  cucumber: "Demand is influenced by season, weather, local consumption, arrivals, and prices.",
+  capsicum: "Demand is influenced by season, weather, restaurant demand, arrivals, and prices.",
+  spinach: "Demand is highly perishable and influenced by local consumption, weather, arrivals, and season.",
+  methi: "Demand is seasonal and influenced by weather, local consumption, arrivals, and prices.",
+  coriander: "Coriander leaves are highly perishable; demand is influenced by daily consumption, weather, arrivals, and season.",
+  garlic: "Demand is influenced by household consumption, storage, arrivals, season, and prices.",
+  ginger: "Demand is influenced by household consumption, food service demand, season, supply, and prices.",
   mango: "Demand is strongly seasonal and influenced by variety, weather, arrivals, festival demand, and prices.",
   banana: "Demand is relatively regular but still affected by arrivals, season, local consumption, and prices.",
   apple: "Demand is influenced by season, supply, origin, storage availability, local consumption, and prices."
