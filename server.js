@@ -462,7 +462,6 @@ const AI_CROP_ALIASES = {
   apple: ["apple", "seb", "सेब"],
   mustard: ["mustard", "sarson", "सरसों"],
   lentil: ["lentil", "masoor", "मसूर"],
-  okra: ["okra", "bhindi", "भिंडी"],
   pumpkin: ["pumpkin", "kaddu", "कद्दू"],
   bitter_gourd: ["bitter gourd", "karela", "करेला"],
   bottle_gourd: ["bottle gourd", "lauki", "लौकी"],
@@ -472,526 +471,37 @@ const AI_CROP_ALIASES = {
 };
 
 const AI_CROP_INFO = {
-  tomato: "Demand is influenced by season, weather, arrivals, local consumption, perishability, and price movement.",
-  onion: "Demand is influenced by household consumption, storage, arrivals, season, weather, and price movement.",
-  potato: "Demand is influenced by household use, processing demand, storage, arrivals, season, and prices.",
-  carrot: "Demand is influenced by season, local consumption, arrivals, weather, perishability, and prices.",
-  rice: "Demand is influenced by food consumption, procurement, season, supply, and market prices.",
-  wheat: "Demand is influenced by food consumption, procurement, season, supply, and market prices.",
-  maize: "Demand is influenced by food, feed, and industrial use, plus season, supply, and prices.",
-  gram: "Demand is influenced by household consumption, dal processing, arrivals, season, and prices.",
-  peas: "Demand is strongly seasonal and influenced by weather, arrivals, local consumption, and prices.",
-  cauliflower: "Demand is seasonal and influenced by weather, arrivals, local consumption, and prices.",
-  cabbage: "Demand is influenced by season, weather, arrivals, local consumption, and prices.",
-  brinjal: "Demand is influenced by local consumption, daily arrivals, weather, season, and prices.",
-  bhindi: "Demand is influenced by local consumption, season, weather, arrivals, and prices.",
-  cucumber: "Demand is influenced by season, weather, local consumption, arrivals, and prices.",
-  capsicum: "Demand is influenced by season, weather, restaurant demand, arrivals, and prices.",
-  spinach: "Demand is highly perishable and influenced by local consumption, weather, arrivals, and season.",
-  methi: "Demand is seasonal and influenced by weather, local consumption, arrivals, and prices.",
-  coriander: "Coriander leaves are highly perishable; demand is influenced by daily consumption, weather, arrivals, and season.",
-  garlic: "Demand is influenced by household consumption, storage, arrivals, season, and prices.",
-  ginger: "Demand is influenced by household consumption, food service demand, season, supply, and prices.",
-  mango: "Demand is strongly seasonal and influenced by variety, weather, arrivals, and prices.",
-  banana: "Demand is influenced by arrivals, season, local consumption, perishability, and prices.",
-  apple: "Demand is influenced by season, supply, origin, storage availability, local consumption, and prices.",
-  mustard: "Demand is influenced by oilseed processing demand, seasonal supply, arrivals, procurement, and prices.",
-  lentil: "Demand is influenced by household consumption, dal processing, seasonal supply, arrivals, and prices.",
-  okra: "Demand is influenced by local consumption, season, weather, arrivals, perishability, and prices.",
-  pumpkin: "Demand is influenced by local consumption, season, arrivals, storage, and prices.",
-  bitter_gourd: "Demand is influenced by season, weather, local consumption, arrivals, perishability, and prices.",
-  bottle_gourd: "Demand is influenced by season, weather, local consumption, arrivals, perishability, and prices.",
-  radish: "Demand is influenced by season, weather, local consumption, arrivals, perishability, and prices.",
-  turnip: "Demand is influenced by season, weather, local consumption, arrivals, perishability, and prices.",
-  sweet_potato: "Demand is influenced by season, household consumption, arrivals, storage, and prices."
-};port express from "express";
-import dotenv from "dotenv";
-import { connectMongoDB, getMongoDB, isMongoConnected } from "./server/db.js";
-import { registerUser, loginUser, getUserFromToken, logoutUser } from "./server/auth.js";
-
-dotenv.config();
-
-const app = express();
-
-app.use(express.json());
-
-app.use((req, res, next) => {
-  const origin = req.headers.origin || "";
-
-  const isAllowedOrigin =
-    origin === "http://localhost:3000" ||
-    origin === "http://localhost:5173" ||
-    origin === "https://apna-anaj.vercel.app" ||
-    /^https:\/\/[^/]+-gulshancod\.vercel\.app$/.test(origin);
-
-  if (isAllowedOrigin) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Vary", "Origin");
-  }
-
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-  );
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET,POST,PUT,PATCH,DELETE,OPTIONS"
-  );
-  res.header("Access-Control-Max-Age", "86400");
-
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
-
-  next();
-});
-
-const PORT = process.env.PORT || 5000;
-const DATA_GOV_API_KEY = process.env.DATA_GOV_API_KEY;
-const RESOURCE_ID = "9ef84268-d588-465a-a308-a864a43d0070";
-const API_URL = `https://api.data.gov.in/resource/${RESOURCE_ID}`;
-
-const CROP_ALIASES = {
-  wheat: ["Wheat", "Gehu"],
-  rice: ["Rice", "Paddy(Common)"],
-  gram: ["Bengal Gram(Gram)(Whole)"],
-  bajra: ["Bajra(Pearl Millet/Cumbu)"],
-  tomato: ["Tomato"],
-  onion: ["Onion"],
-  potato: ["Potato"],
-  bhindi: ["Bhindi(Ladies Finger)"],
-  carrot: ["Carrot"],
-  peas: ["Green Peas"],
-  capsicum: ["Capsicum"],
-  "bottle gourd": ["Bottle gourd"],
-  brinjal: ["Brinjal"],
-  cucumber: ["Cucumbar(Kheera)"],
-  cauliflower: ["Cauliflower"],
-  spinach: ["Spinach"],
-  methi: ["Methi"],
-  coriander: ["Coriander(Leaves)"],
-  mango: ["Mango"],
-  milk: ["Milk"],
-  garlic: ["Garlic"]
-};
-
-const DEMO_MARKET_DATA = {
-  milk: {
-    average: 44,
-    lowest: 40,
-    highest: 48
-  }
-};
-
-const GOV_CACHE_TTL_MS = 15 * 60 * 1000;
-const GOV_REQUEST_GAP_MS = 800;
-const govCache = new Map();
-const govInflight = new Map();
-
-function normalize(value) {
-  return String(value || "").trim().toLowerCase();
-}
-
-function getCropNames(crop) {
-  const key = normalize(crop);
-  return CROP_ALIASES[key] || [crop];
-}
-
-function getField(row, names) {
-  for (const name of names) {
-    if (row[name] !== undefined && row[name] !== null) {
-      return row[name];
-    }
-  }
-  return "";
-}
-
-function formatMarketData(records) {
-  return records.map((row) => {
-    const minPrice =
-      Number(getField(row, ["min_price", "Min_x0020_Price", "Min Price"])) || 0;
-    const maxPrice =
-      Number(getField(row, ["max_price", "Max_x0020_Price", "Max Price"])) || 0;
-    const modalPrice =
-      Number(getField(row, ["modal_price", "Modal_x0020_Price", "Modal Price"])) || 0;
-
-    return {
-      state: getField(row, ["state", "State"]),
-      district: getField(row, ["district", "District"]),
-      market: getField(row, ["market", "Market"]),
-      commodity: getField(row, ["commodity", "Commodity"]),
-      variety: getField(row, ["variety", "Variety"]),
-      grade: getField(row, ["grade", "Grade"]),
-      arrivalDate: getField(row, ["arrival_date", "Arrival_Date", "Arrival Date"]),
-      minPrice,
-      maxPrice,
-      modalPrice,
-      minPricePerKg: Number((minPrice / 100).toFixed(2)),
-      maxPricePerKg: Number((maxPrice / 100).toFixed(2)),
-      modalPricePerKg: Number((modalPrice / 100).toFixed(2))
-    };
-  });
-}
-
-async function sleep(ms) {
-  await new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function fetchGovernmentData(crop) {
-  const cacheKey = normalize(crop);
-  const cached = govCache.get(cacheKey);
-
-  if (cached && Date.now() - cached.timestamp < GOV_CACHE_TTL_MS) {
-    return cached.records;
-  }
-
-  const existingRequest = govInflight.get(cacheKey);
-  if (existingRequest) {
-    return existingRequest;
-  }
-
-  if (!DATA_GOV_API_KEY) {
-    throw new Error("DATA_GOV_API_KEY missing in .env");
-  }
-
-  const requestPromise = (async () => {
-    const cropNames = getCropNames(crop);
-    let allRecords = [];
-
-    for (const cropName of cropNames) {
-      const params = new URLSearchParams({
-        "api-key": DATA_GOV_API_KEY,
-        format: "json",
-        limit: "1000",
-        "filters[commodity]": cropName
-      });
-
-      const url = `${API_URL}?${params.toString()}`;
-      let response = null;
-      let lastError = null;
-
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-          if (attempt > 0) {
-            await sleep(Math.min(2000 * attempt, 5000));
-          }
-
-          response = await fetch(url);
-
-          if (response.ok) {
-            break;
-          }
-
-          if (response.status === 429) {
-            const retryAfter = Number(response.headers.get("retry-after"));
-            const waitMs =
-              Number.isFinite(retryAfter) && retryAfter > 0
-                ? Math.min(retryAfter * 1000, 10000)
-                : 2000 * (attempt + 1);
-
-            await sleep(waitMs);
-            continue;
-          }
-
-          lastError = new Error(`Government API error: ${response.status}`);
-          break;
-        } catch (error) {
-          lastError = error;
-
-          if (attempt < 2) {
-            await sleep(1000 * (attempt + 1));
-          }
-        }
-      }
-
-      if (!response?.ok) {
-        throw lastError || new Error("Government API request failed");
-      }
-
-      const result = await response.json();
-
-      if (Array.isArray(result.records)) {
-        allRecords = allRecords.concat(result.records);
-      }
-
-      if (cropNames.length > 1) {
-        await sleep(GOV_REQUEST_GAP_MS);
-      }
-    }
-
-    const uniqueRecords = Array.from(
-      new Map(allRecords.map((row) => [JSON.stringify(row), row])).values()
-    );
-
-    govCache.set(cacheKey, {
-      timestamp: Date.now(),
-      records: uniqueRecords
-    });
-
-    return uniqueRecords;
-  })();
-
-  govInflight.set(cacheKey, requestPromise);
-
-  try {
-    return await requestPromise;
-  } finally {
-    govInflight.delete(cacheKey);
-  }
-}
-
-function buildMarketSummary(crop, records) {
-  const marketData = formatMarketData(records);
-
-  const prices = marketData
-    .map((row) => Number(row.modalPrice))
-    .filter((price) => Number.isFinite(price) && price >= 100);
-
-  if (!prices.length) {
-    return null;
-  }
-
-  const average = prices.reduce((sum, price) => sum + price, 0) / prices.length;
-  const lowest = Math.min(...prices);
-  const highest = Math.max(...prices);
-  const markets = new Set(
-    marketData.map((row) => row.market).filter(Boolean)
-  );
-
-  return {
-    success: true,
-    availableData: true,
-    isDemoData: false,
-    source: "Government of India - AGMARKNET",
-    sourceType: "Live Government API",
-    crop,
-    markets: markets.size,
-    records: prices.length,
-    priceUnit: "₹/Quintal",
-    averageModalPrice: Math.round(average),
-    lowestModalPrice: lowest,
-    highestModalPrice: highest,
-    priceUnitPerKg: "₹/KG",
-    averageModalPricePerKg: Number((average / 100).toFixed(2)),
-    lowestModalPricePerKg: Number((lowest / 100).toFixed(2)),
-    highestModalPricePerKg: Number((highest / 100).toFixed(2))
-  };
-}
-
-function getDemoSummary(crop) {
-  const demo = DEMO_MARKET_DATA[crop];
-
-  if (!demo) {
-    return null;
-  }
-
-  return {
-    success: true,
-    availableData: true,
-    isDemoData: true,
-    source: "ApnaAnaj Demo Reference Data",
-    sourceType: "Demo",
-    crop,
-    markets: 0,
-    records: 1,
-    priceUnit: "₹/KG",
-    averageModalPricePerKg: demo.average,
-    lowestModalPricePerKg: demo.lowest,
-    highestModalPricePerKg: demo.highest
-  };
-}
-
-function getBearerToken(req) {
-  const header = String(req.headers.authorization || "");
-  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-}
-
-function requireMongo(req, res, next) {
-  if (!process.env.MONGODB_URI || !isMongoConnected()) {
-    return res.status(503).json({
-      success: false,
-      message: "Database is not connected. Configure MONGODB_URI on the backend."
-    });
-  }
-  next();
-}
-
-app.post("/api/auth/register", async (req, res) => {
-  try {
-    const { role, name, phone, email, password, farm, location, address } = req.body || {};
-
-    if (!process.env.MONGODB_URI) {
-      return res.status(503).json({
-        success: false,
-        message: "MongoDB is not configured on the backend."
-      });
-    }
-
-    await connectMongoDB();
-
-    const session = await registerUser({
-      role,
-      name,
-      phone,
-      email,
-      password,
-      farm,
-      location,
-      address
-    });
-
-    return res.status(201).json({ success: true, ...session });
-  } catch (error) {
-    console.error("Registration error:", error);
-    const duplicate = /already exists/i.test(error.message);
-    return res.status(duplicate ? 409 : 400).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { role, identifier, password } = req.body || {};
-
-    if (!process.env.MONGODB_URI) {
-      return res.status(503).json({
-        success: false,
-        message: "MongoDB is not configured on the backend."
-      });
-    }
-
-    await connectMongoDB();
-    const session = await loginUser(identifier, password, role);
-
-    return res.json({ success: true, ...session });
-  } catch (error) {
-    console.error("Login error:", error);
-    return res.status(401).json({
-      success: false,
-      message: error.message
-    });
-  }
-});
-
-app.get("/api/auth/me", requireMongo, async (req, res) => {
-  try {
-    const user = await getUserFromToken(getBearerToken(req));
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Session expired. Please log in again."
-      });
-    }
-
-    return res.json({ success: true, user });
-  } catch (error) {
-    console.error("Session check error:", error);
-    return res.status(401).json({
-      success: false,
-      message: "Unable to restore your session."
-    });
-  }
-});
-
-app.post("/api/auth/logout", requireMongo, async (req, res) => {
-  try {
-    await logoutUser(getBearerToken(req));
-    return res.json({ success: true });
-  } catch (error) {
-    console.error("Logout error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Unable to log out."
-    });
-  }
-});
-
-
-
-const AI_LANGUAGE_NAMES = {
-  en: "English",
-  hinglish: "Hinglish",
-  hi: "Hindi",
-  mr: "Marathi",
-  pa: "Punjabi",
-  gu: "Gujarati",
-  bn: "Bengali",
-  te: "Telugu",
-  ta: "Tamil",
-  kn: "Kannada"
-};
-
-const AI_PAGE_DETAILS = {
-  "view-welcome": "Welcome/Home page",
-  "view-farmer-reg": "Farmer registration page",
-  "view-buyer-reg": "Buyer registration page",
-  "view-auth": "Login page",
-  "view-buyer-store": "Buyer Fresh Store",
-  "view-buyer-tracking": "Buyer Live Tracking",
-  "view-farmer-dash": "Farmer Dashboard",
-  "view-add-produce": "Add Produce",
-  "view-demand-forecast": "AI Demand Forecast",
-  "view-selling-rec": "Selling Recommendation",
-  "view-matching": "Buyer Matching",
-  "view-pooling": "Quantity Pooling",
-  "view-route": "EV Pickup Route",
-  "view-transparency": "Price Transparency",
-  "view-orders": "Orders and Batches"
-};
-
-const AI_CROP_ALIASES = {
-  tomato: ["tomato", "tamatar"],
-  onion: ["onion", "pyaz", "pyaaz"],
-  potato: ["potato", "aloo", "alu"],
-  carrot: ["carrot", "gajar"],
-  rice: ["rice", "chawal", "paddy", "dhaan"],
-  wheat: ["wheat", "gehun", "gehu"],
-  maize: ["maize", "corn", "makka", "makkai"],
-  gram: ["gram", "chana", "chickpea"],
-  peas: ["peas", "matar", "green peas"],
-  cauliflower: ["cauliflower", "phool gobhi", "gobhi"],
-  cabbage: ["cabbage", "patta gobhi"],
-  brinjal: ["brinjal", "baingan", "eggplant"],
-  bhindi: ["bhindi", "okra", "ladies finger"],
-  cucumber: ["cucumber", "kheera", "cucumbar"],
-  capsicum: ["capsicum", "shimla mirch", "bell pepper"],
-  spinach: ["spinach", "palak"],
-  methi: ["methi", "fenugreek leaves"],
-  coriander: ["coriander", "dhaniya", "coriander leaves"],
-  garlic: ["garlic", "lahsun", "lehsun"],
-  ginger: ["ginger", "adrak"],
-  mango: ["mango", "aam"],
-  banana: ["banana", "kela"],
-  apple: ["apple", "seb"]
-};
-
-const AI_CROP_INFO = {
-  tomato: "Demand is influenced by season, weather, arrivals, local consumption, perishability, and price movement.",
-  onion: "Demand is influenced by household consumption, storage, arrivals, season, weather, and price movement.",
-  potato: "Demand is influenced by household use, processing demand, storage, arrivals, season, and prices.",
-  carrot: "Demand is influenced by season, local consumption, arrivals, weather, perishability, and prices.",
-  rice: "Demand is influenced by food consumption, procurement, season, supply, and market prices.",
-  wheat: "Demand is influenced by food consumption, procurement, season, supply, and market prices.",
-  maize: "Demand is influenced by food, feed, and industrial use, plus season, supply, and prices.",
-  gram: "Demand is influenced by household consumption, dal processing, arrivals, season, and prices.",
-  peas: "Demand is strongly seasonal and influenced by weather, arrivals, local consumption, and prices.",
-  cauliflower: "Demand is seasonal and influenced by weather, arrivals, local consumption, and prices.",
-  cabbage: "Demand is influenced by season, weather, arrivals, local consumption, and prices.",
-  brinjal: "Demand is influenced by local consumption, daily arrivals, weather, season, and prices.",
-  bhindi: "Demand is influenced by local consumption, season, weather, arrivals, and prices.",
-  cucumber: "Demand is influenced by season, weather, local consumption, arrivals, and prices.",
-  capsicum: "Demand is influenced by season, weather, restaurant demand, arrivals, and prices.",
-  spinach: "Demand is highly perishable and influenced by local consumption, weather, arrivals, and season.",
-  methi: "Demand is seasonal and influenced by weather, local consumption, arrivals, and prices.",
-  coriander: "Coriander leaves are highly perishable; demand is influenced by daily consumption, weather, arrivals, and season.",
-  garlic: "Demand is influenced by household consumption, storage, arrivals, season, and prices.",
-  ginger: "Demand is influenced by household consumption, food service demand, season, supply, and prices.",
-  mango: "Demand is strongly seasonal and influenced by variety, weather, arrivals, festival demand, and prices.",
-  banana: "Demand is relatively regular but still affected by arrivals, season, local consumption, and prices.",
-  apple: "Demand is influenced by season, supply, origin, storage availability, local consumption, and prices."
+  tomato: "season, weather, market arrivals, local consumption, perishability, and prices",
+  onion: "household consumption, storage, arrivals, season, weather, and prices",
+  potato: "household use, processing demand, storage, arrivals, season, and prices",
+  carrot: "season, local consumption, arrivals, weather, perishability, and prices",
+  rice: "food consumption, procurement, season, supply, and market prices",
+  wheat: "food consumption, procurement, season, supply, and market prices",
+  maize: "food, feed, industrial use, season, supply, and prices",
+  gram: "household consumption, dal processing, arrivals, season, and prices",
+  peas: "season, weather, arrivals, local consumption, and prices",
+  cauliflower: "season, weather, arrivals, local consumption, and prices",
+  cabbage: "season, weather, arrivals, local consumption, and prices",
+  brinjal: "local consumption, daily arrivals, weather, season, and prices",
+  bhindi: "local consumption, season, weather, arrivals, perishability, and prices",
+  cucumber: "season, weather, local consumption, arrivals, and prices",
+  capsicum: "season, weather, restaurant demand, arrivals, and prices",
+  spinach: "local consumption, weather, arrivals, perishability, and season",
+  methi: "season, weather, local consumption, arrivals, and prices",
+  coriander: "daily consumption, weather, arrivals, perishability, and season",
+  garlic: "household consumption, storage, arrivals, season, and prices",
+  ginger: "household consumption, food service demand, season, supply, and prices",
+  mango: "season, variety, weather, arrivals, and prices",
+  banana: "arrivals, season, local consumption, perishability, and prices",
+  apple: "season, supply, origin, storage, local consumption, and prices",
+  mustard: "oilseed processing demand, seasonal supply, arrivals, procurement, and prices",
+  lentil: "household consumption, dal processing, seasonal supply, arrivals, and prices",
+  pumpkin: "local consumption, season, arrivals, storage, and prices",
+  bitter_gourd: "season, weather, local consumption, arrivals, perishability, and prices",
+  bottle_gourd: "season, weather, local consumption, arrivals, perishability, and prices",
+  radish: "season, weather, local consumption, arrivals, perishability, and prices",
+  turnip: "season, weather, local consumption, arrivals, perishability, and prices",
+  sweet_potato: "season, household consumption, arrivals, storage, and prices"
 };
 
 function getPageDetails(page) {
@@ -1017,17 +527,16 @@ function detectAssistantCrop(message) {
 function buildApnaAnajKnowledge() {
   return [
     "Apna Anaj is a farmer-to-buyer agricultural marketplace and decision-support web app.",
-    "Its goal is to help farmers understand market signals, plan selling, connect with buyers, pool quantities, and improve visibility of price and logistics information.",
     "Main farmer workflow: Add Produce -> AI Demand Forecast -> Selling Recommendation -> Buyer Matching -> Quantity Pooling -> EV Pickup Route -> Price Transparency -> Orders/Batches.",
-    "AI Demand Forecast uses available market/mandi signals shown in the app. In the current implementation, the demand signal is derived from the farmer's expected rate compared with the current government mandi average. The displayed 7-day projection is a modelled reference based on the current mandi range, not a guaranteed future demand value.",
-    "Selling Recommendation explains options such as Sell Now, Join Pool, or Review Price using available market signals.",
-    "Buyer Matching considers crop, quantity, location, buyer demand, and offered price to explain a match.",
-    "Quantity Pooling lets multiple farmers combine produce quantities for larger buyer requirements.",
+    "AI Demand Forecast uses available crop/market signals. In the current app implementation, the displayed demand signal is derived from the farmer expected rate compared with the current government mandi average. The 7-day projection is a modelled reference based on the current mandi range, not a guaranteed future demand result.",
+    "Selling Recommendation explains actions such as Sell Now, Join Pool, or Review Price using available market signals.",
+    "Buyer Matching uses crop, quantity, location, buyer demand, and offered price.",
+    "Quantity Pooling lets multiple farmers combine quantities for a larger buyer requirement.",
     "EV Pickup Route represents logistics planning for pickup/delivery using an EV-oriented route concept.",
-    "Price Transparency shows price context so the farmer can understand how the offer relates to market information.",
-    "Buyer side includes a Fresh Store, basket/cart, orders, and live tracking.",
-    "The app supports farmer and buyer registration/login and a multi-language interface.",
-    "Never claim a forecast, price, buyer match, or delivery time is guaranteed."
+    "Price Transparency helps the farmer understand an offer in relation to available market-price information.",
+    "Buyer side includes the Fresh Store, basket/cart, orders, and live tracking.",
+    "The app supports farmer and buyer registration/login and multi-language UI.",
+    "Never claim forecasts, prices, buyer matches, or delivery times are guaranteed."
   ].join("\n");
 }
 
@@ -1035,23 +544,21 @@ function buildAssistantSystemPrompt(message, page, language) {
   const lang = normalizeAssistantLanguage(language);
   return [
     "You are Apna Anaj AI, a helpful conversational assistant embedded in the Apna Anaj website.",
-    "Identify the user's actual intent first and answer that question directly.",
-    "Do not force unrelated questions into website or page context.",
-    "You can answer general farming, agriculture, crop, market, technology, and Apna Anaj questions.",
-    "Use the following Apna Anaj product knowledge as the canonical description:",
+    "Answer the user actual question first. Do not repeat a generic website description for unrelated questions.",
+    "You can answer general farming, agriculture, crop, market, technology, and Apna Anaj feature questions.",
+    "Use this Apna Anaj product knowledge as the canonical feature description:",
     buildApnaAnajKnowledge(),
-    "For crop demand forecasting, explain HIGH/MEDIUM/LOW in simple farmer-friendly language.",
-    "When a user asks for a crop forecast by name, detect the crop. Do not invent a live numerical forecast. Use current app data when supplied; otherwise explain the relevant demand drivers and say that the exact live status requires the current data.",
-    "For factual or changing questions, use available current data or web search when available. Never invent current prices, government data, private account data, orders, or live events.",
-    "Use simple words and practical explanations. Avoid generic filler and repetitive page descriptions.",
-    "Language rule: English selected = answer in English. Hindi selected = answer in natural Devanagari Hindi. Hinglish selected = answer in natural Roman Hindi.",
+    "For demand forecasting questions, explain HIGH, MEDIUM, and LOW in simple farmer-friendly language.",
+    "When a crop is named, identify that crop. Never invent a live forecast value. Use current data when available; otherwise explain the relevant demand drivers and say exact live status needs current data.",
+    "For current/factual questions, use available current data or web search when available. Never invent live prices, private data, orders, or current events.",
+    "Selected English means answer in English. Selected Hindi means answer in natural Devanagari Hindi. Selected Hinglish means answer in natural Roman Hindi.",
+    "Keep answers direct, practical, and not repetitive.",
     "Selected language: " + (AI_LANGUAGE_NAMES[lang] || "Hindi"),
     "Current page: " + getPageDetails(page),
     "Detected crop: " + (detectAssistantCrop(message) || "none"),
     "User question: " + message
   ].join("\n");
 }
-
 async function callOpenAIWebAssistant(message, page, language) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;
@@ -1166,96 +673,66 @@ function buildLocalAssistantAnswer(message, page, language) {
   const websiteHI = "Apna Anaj ek farmer-to-buyer agricultural platform hai. Isme farmer produce list kar sakta hai, market aur demand signals samajh sakta hai, selling guidance le sakta hai, buyers se match ho sakta hai, quantity pool kar sakta hai, EV pickup plan kar sakta hai, price context dekh sakta hai aur orders track kar sakta hai.";
 
   const isForecast =
-    /demand\\s*(forecast|forecasting|prediction)/i.test(q) ||
-    /forecast/i.test(q) ||
-    /फोरकास्ट|फोरकास्टिंग|पूर्वानुमान|मांग.*बताओ|डिमांड.*बताओ|डिमांड.*फोरकास्ट|मांग.*पूर्वानुमान/.test(q) ||
-    (/demand|मांग|डिमांड/.test(q) && /how|kaise|कैसे|hoga|hogi|होगा|होगी|बताओ|बताo|what|kya|क्या/.test(q));
-
-  const asksBenefits =
-    /benefit|benefits|advantage|advantages|fayda|faayda|फायदा|लाभ|benefit.*farmer|किसान.*फायदा|farmer.*benefit/i.test(q);
-
-  const asksWebsite =
-    /what is apna anaj|apna anaj kya|apna anaj.*website|website kya|website.*kya|app kya|platform kya|पना अनाज क्या|अपना अनाज क्या|वेबसाइट क्या|ऐप क्या|प्लेटफॉर्म क्या/.test(q);
-
-  const asksHow =
-    /how.*work|how.*forecast|kaise.*work|kaise.*forecast|कैसे काम|कैसे होता|कैसे काम करता|कैसे काम करती|कैसे होता है/.test(q);
-
-  const asksMatching = /buyer matching|matching|बायर मैचिंग|बायर से मैच|खरीदार.*मिल|खरीदार.*मैच/.test(q);
+    /demand\s*(forecast|forecasting|prediction)/i.test(q) ||
+    /forecast|फोरकास्ट|फोरकास्टिंग|पूर्वानुमान/.test(q) ||
+    /मांग|डिमांड/.test(q) && /बताओ|बता|कैसे|होगा|होगी|क्या|future|prediction|forecast/.test(q);
+  const asksBenefits = /benefit|benefits|advantage|advantages|fayda|faayda|फायदा|लाभ|किसान.*फायदा|farmer.*benefit/.test(q);
+  const asksWebsite = /what is apna anaj|apna anaj kya|website kya|app kya|platform kya|अपना अनाज क्या|वेबसाइट क्या|ऐप क्या|प्लेटफॉर्म क्या/.test(q);
+  const asksMatching = /buyer matching|matching|बायर मैचिंग|बायर से मैच|खरीदार.*मैच|खरीदार.*मिल/.test(q);
   const asksPooling = /quantity pooling|pooling|pool kaise|पूलिंग|क्वांटिटी पूल|मात्रा.*मिल/.test(q);
-  const asksSelling = /selling recommendation|sell now|kab bechu|कब बेच|बेचना.*कब|sell.*now|सेल.*नाउ/.test(q);
+  const asksSelling = /selling recommendation|sell now|kab bechu|कब बेच|बेचना.*कब|सेल.*नाउ/.test(q);
   const asksRoute = /ev pickup|pickup route|delivery route|ईवी.*पिकअप|पिकअप.*रूट|डिलीवरी.*रूट/.test(q);
   const asksTransparency = /price transparency|transparent price|price kaise|प्राइस.*ट्रांसपेरेंसी|कीमत.*पारदर्श|दाम.*कैसे/.test(q);
 
   if (asksWebsite) return lang === "en" ? websiteEN : websiteHI;
 
   if (isForecast && crop) {
-    const cropName = crop.replace(/_/g, " ").replace(/\\b\\w/g, (m) => m.toUpperCase());
-    const info = AI_CROP_INFO[crop] || "season, weather, arrivals, local consumption, supply, and prices.";
-    if (lang === "en") {
-      return `${cropName} demand forecast: the app should evaluate the available ${cropName} market signals and classify demand as HIGH, MEDIUM, or LOW. For ${cropName}, key factors are ${info} A live HIGH/MEDIUM/LOW result must come from the current data; this fallback does not invent a live value.`;
-    }
-    if (lang === "hi") {
-      return `${cropName} की डिमांड फोरकास्ट: ऐप उपलब्ध ${cropName} के market signals को देखकर demand को HIGH, MEDIUM या LOW के रूप में समझाता है। ${cropName} के लिए मुख्य factors हैं: ${info} Exact live HIGH/MEDIUM/LOW result current data से ही बताया जाना चाहिए; fallback fake live value नहीं बनाएगा।`;
-    }
-    return `${cropName} ki demand forecast: app available ${cropName} market signals ko dekhkar demand ko HIGH, MEDIUM ya LOW samjhata hai. ${cropName} ke main factors hain: ${info} Exact live HIGH/MEDIUM/LOW result current data se hi aayega; fallback fake live value nahi banayega.`;
+    const cropName = crop.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+    const info = AI_CROP_INFO[crop] || "season, weather, arrivals, local consumption, supply, and prices";
+    if (lang === "en") return cropName + " demand forecast: the app uses available " + cropName + " market signals to classify demand as HIGH, MEDIUM, or LOW. Main demand drivers are " + info + ". The exact live HIGH/MEDIUM/LOW result must come from current data, so the fallback will not invent it.";
+    if (lang === "hi") return cropName + " की डिमांड फोरकास्ट: ऐप उपलब्ध " + cropName + " के market signals को देखकर demand को HIGH, MEDIUM या LOW के रूप में समझाता है। मुख्य factors हैं: " + info + " Exact live result current data से ही बताया जाना चाहिए, इसलिए fallback fake value नहीं बनाएगा।";
+    return cropName + " ki demand forecast: app available " + cropName + " market signals ko dekhkar demand ko HIGH, MEDIUM ya LOW samjhata hai. Main factors hain: " + info + ". Exact live result current data se hi aayega; fallback fake value nahi banayega.";
   }
 
-  if (isForecast) {
-    return lang === "en"
-      ? "Demand forecasting in Apna Anaj uses available crop and market signals to explain whether demand is HIGH, MEDIUM, or LOW. It helps farmers plan selling and market access; it is not a guaranteed future result."
-      : lang === "hi"
-      ? "Apna Anaj me demand forecasting available crop aur market signals ke basis par demand ko HIGH, MEDIUM ya LOW ke roop me samjhati hai. Isse farmer ko selling aur market planning me help milti hai; ye guaranteed future result nahi hai."
-      : "Apna Anaj me demand forecasting available crop aur market signals se demand ko HIGH, MEDIUM ya LOW samajhti hai. Isse farmer ko selling aur market planning me help milti hai; ye guaranteed future result nahi hai.";
-  }
+  if (isForecast) return lang === "en"
+    ? "Apna Anaj demand forecasting available crop aur market signals se HIGH, MEDIUM ya LOW demand signal samjhata hai. Isse farmer ko selling aur market planning me help milti hai; ye guaranteed future result nahi hai."
+    : lang === "hi"
+    ? "Apna Anaj में demand forecasting उपलब्ध crop aur market signals के आधार पर HIGH, MEDIUM ya LOW demand signal समझाती है। इससे किसान को selling aur market planning में मदद मिलती है; यह guaranteed future result नहीं है।"
+    : "Apna Anaj me demand forecasting available crop aur market signals se HIGH, MEDIUM ya LOW demand signal samajhti hai. Isse farmer ko selling aur market planning me help milti hai; ye guaranteed future result nahi hai.";
 
-  if (asksBenefits) {
-    return lang === "en"
-      ? "Farmer benefits include better market awareness, clearer selling decisions, buyer discovery, quantity pooling for larger requirements, price visibility, and logistics planning."
-      : lang === "hi"
-      ? "Farmer ko better market awareness, selling decision me clarity, buyer dhoondhne me help, badi quantity ke liye pooling, price visibility aur logistics planning ka benefit mil sakta hai."
-      : "Farmer ko better market awareness, selling decision me clarity, buyer discovery, quantity pooling, price visibility aur logistics planning me help mil sakti hai.";
-  }
+  if (asksBenefits) return lang === "en"
+    ? "Farmer benefits include better market awareness, clearer selling decisions, buyer discovery, quantity pooling for larger requirements, price visibility, and logistics planning."
+    : lang === "hi"
+    ? "किसान को market awareness, selling decision में clarity, buyer dhoondhne में मदद, बड़ी requirement के लिए quantity pooling, price visibility और logistics planning का फायदा मिल सकता है।"
+    : "Farmer ko better market awareness, selling decision me clarity, buyer discovery, quantity pooling, price visibility aur logistics planning me help mil sakti hai.";
 
-  if (asksMatching) {
-    return lang === "en"
-      ? "Buyer Matching checks crop, quantity, location, buyer demand, and offered price to explain which buyer requirement fits the farmer's produce."
-      : "Buyer Matching crop, quantity, location, buyer demand aur offered price ko dekhkar farmer ke produce ko suitable buyer requirement se match karne me help karta hai.";
-  }
+  if (asksMatching) return lang === "en"
+    ? "Buyer Matching crop, quantity, location, buyer demand, and offered price ko dekhkar farmer produce ko suitable buyer requirement se match karta hai."
+    : lang === "hi"
+    ? "Buyer Matching crop, quantity, location, buyer demand aur offered price ko dekhkar farmer ke produce ko suitable buyer requirement se match karta hai."
+    : "Buyer Matching crop, quantity, location, buyer demand aur offered price ko dekhkar farmer ke produce ko suitable buyer requirement se match karta hai.";
 
-  if (asksPooling) {
-    return lang === "en"
-      ? "Quantity Pooling lets multiple farmers combine their quantities so a larger buyer requirement can be fulfilled together."
-      : "Quantity Pooling me multiple farmers apni quantities combine kar sakte hain, jisse badi buyer requirement ko milkar fulfil kiya ja sakta hai.";
-  }
+  if (asksPooling) return lang === "en"
+    ? "Quantity Pooling lets multiple farmers combine quantities so a larger buyer requirement can be fulfilled together."
+    : "Quantity Pooling me multiple farmers apni quantities combine karke badi buyer requirement ko milkar fulfil kar sakte hain.";
 
-  if (asksSelling) {
-    return lang === "en"
-      ? "Selling Recommendation explains options such as Sell Now, Join Pool, or Review Price using the available market signals."
-      : "Selling Recommendation available market signals ke basis par Sell Now, Join Pool ya Review Price jaise options ko explain karta hai.";
-  }
+  if (asksSelling) return lang === "en"
+    ? "Selling Recommendation explains options such as Sell Now, Join Pool, or Review Price using the available market signals."
+    : "Selling Recommendation available market signals ke basis par Sell Now, Join Pool ya Review Price jaise options explain karta hai.";
 
-  if (asksRoute) {
-    return lang === "en"
-      ? "EV Pickup Route is the logistics step for planning produce pickup movement from farmers toward buyers using an EV-oriented route concept."
-      : "EV Pickup Route farmer se buyer tak produce pickup ko EV-oriented route concept ke through plan karne wala logistics step hai.";
-  }
+  if (asksRoute) return lang === "en"
+    ? "EV Pickup Route is the logistics step for planning produce pickup movement from farmers toward buyers using an EV-oriented route concept."
+    : "EV Pickup Route farmer se buyer tak produce pickup ko EV-oriented route concept ke through plan karne wala logistics step hai.";
 
-  if (asksTransparency) {
-    return lang === "en"
-      ? "Price Transparency helps farmers understand an offer compared with the available market-price information."
-      : "Price Transparency farmer ko available market-price information ke comparison me offer ko samajhne me help karta hai.";
-  }
-
-  if (asksHow) {
-    return lang === "en"
-      ? "Apna Anaj reads the available market signals, combines them with the feature logic, and explains the result in simple farmer-friendly language."
-      : "Apna Anaj available market signals ko read karta hai, feature ki logic ke saath analyse karta hai aur result ko simple farmer-friendly language me explain karta hai.";
-  }
+  if (asksTransparency) return lang === "en"
+    ? "Price Transparency helps farmers understand an offer compared with available market-price information."
+    : "Price Transparency farmer ko available market-price information ke comparison me offer ko samajhne me help karta hai.";
 
   return lang === "en"
-    ? "I can answer questions about Apna Anaj, demand forecasting, any crop, selling, buyer matching, quantity pooling, prices, logistics, and general farming."
-    : "Aap mujhse Apna Anaj, demand forecasting, kisi bhi crop, selling, buyer matching, quantity pooling, prices, logistics aur general farming ke baare me sawal pooch sakte ho.";
-}\n\nasync function generateAssistantAnswer(message, page, language) {
+    ? "Ask me about Apna Anaj, demand forecasting, any crop, selling, buyer matching, pooling, prices, logistics, or general farming."
+    : "Aap mujhse Apna Anaj, demand forecasting, kisi bhi crop, selling, buyer matching, pooling, prices, logistics ya general farming ke baare me sawal pooch sakte ho.";
+}
+async function generateAssistantAnswer(message, page, language) {
   const errors = [];
 
   for (const [providerName, providerCall] of [
