@@ -14,6 +14,7 @@ app.use((req, res, next) => {
 
   const isAllowedOrigin =
     origin === "http://localhost:3000" ||
+    origin === "http://localhost:3001" ||
     origin === "http://localhost:5173" ||
     origin === "https://apna-anaj.vercel.app" ||
     /^https:\/\/[^/]+-gulshancod\.vercel\.app$/.test(origin);

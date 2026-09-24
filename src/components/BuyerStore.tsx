@@ -98,6 +98,8 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
 
           const result = await response.json();
           const marketData = result?.data || {};
+          console.log('Mandi API Result:', result);
+          console.log('Mandi Market Data:', marketData);
 
           productCrops.forEach(({ id, crop }) => {
             if (crop === 'milk') {
@@ -105,17 +107,42 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
               return;
             }
 
-            const entry = marketData?.[crop];
+            // Read the API entry robustly, even if the backend changes
+            // the crop key's capitalization or spacing.
+            const normalizedCrop = String(crop)
+              .toLowerCase()
+              .trim()
+              .replace(/[_-]+/g, ' ')
+              .replace(/\s+/g, ' ');
+
+            const matchedKey = Object.keys(marketData || {}).find((key) => {
+              const normalizedKey = String(key)
+                .toLowerCase()
+                .trim()
+                .replace(/[_-]+/g, ' ')
+                .replace(/\s+/g, ' ');
+              return normalizedKey === normalizedCrop;
+            });
+
+            const entry = matchedKey ? marketData[matchedKey] : undefined;
             const value = Number(entry?.averageModalPricePerKg);
 
-            nextPrices[id] =
+            const hasLiveMandiPrice =
               entry?.success === true &&
               entry?.availableData === true &&
-              entry?.isDemoData === false &&
+              entry?.isDemoData !== true &&
               Number.isFinite(value) &&
-              value > 0
-                ? value
-                : null;
+              value > 0;
+
+            nextPrices[id] = hasLiveMandiPrice ? value : null;
+
+            console.log('Mandi product mapping:', {
+              productId: id,
+              productCrop: crop,
+              matchedKey,
+              value,
+              live: hasLiveMandiPrice
+            });
           });
         }
 
@@ -308,11 +335,15 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
             const mandiPrice = mandiPrices[prod.id];
             const isMandiAvailable =
               typeof mandiPrice === 'number' &&
-              Number.isFinite(mandiPrice);
+              Number.isFinite(mandiPrice) &&
+              mandiPrice > 0;
 
             const displayedPrice = isMandiAvailable
               ? mandiPrice
               : prod.price;
+
+            // Calculate payout from the exact price displayed to the buyer.
+            const farmerPayout = displayedPrice * 0.88;
 
             const pricedProduct = isMandiAvailable
               ? { ...prod, price: mandiPrice }
@@ -387,24 +418,24 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                   </div>
 
                   <div className="pt-2 border-t border-[#e5dec9]/60 dark:border-[#223f30] flex items-center justify-between">
-                    <div>
-                      <div className="font-heading font-bold text-lg text-[#1e5634] dark:text-[#4ade80] leading-none">
-                        {mandiLoading ? (
-                          <span className="inline-block h-5 w-20 rounded-md skeleton align-middle" aria-label="Loading price" />
-                        ) : (
-                          <>
-                            ₹{displayedPrice.toFixed(2)}
-                            <span className="text-[10px] font-normal ml-1">/kg</span>
-                          </>
-                        )}
+                      <div>
+                        <div className="font-heading font-bold text-lg text-[#1e5634] dark:text-[#4ade80] leading-none">
+                          {mandiLoading ? (
+                            <span
+                              className="inline-block h-5 w-20 rounded-md skeleton align-middle"
+                              aria-label="Loading price"
+                            />
+                          ) : (
+                            <>
+                              ₹{displayedPrice.toFixed(2)}
+                              <span className="text-[10px] font-normal ml-1">/kg</span>
+                            </>
+                          )}
+                        </div>
+                        {/* <div className="text-[9px] font-bold text-[#f28b47] mt-0.5">
+                          FARMER GETS (88%): ₹{(displayedPrice * 0.88).toFixed(2)}/KG
+                         </div> */}
                       </div>
-
-                      <div className="text-[9px] font-extrabold uppercase text-[#f28b47] tracking-wider mt-0.5">
-                        {isMandiAvailable
-                          ? `Government Mandi Rate • Farmer Gets (88%): ₹${(mandiPrice * 0.88).toFixed(2)}/kg`
-                          : `Demo Rate • Government rate unavailable • Farmer Gets (88%): ₹${(prod.price * 0.88).toFixed(2)}/kg`}
-                      </div>
-                    </div>
 
                     {currentQty === 0 ? (
                       <button
@@ -426,7 +457,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            onUpdateCart({ ...prod, price: prod.price }, -1);
+                            onUpdateCart(pricedProduct, -1);
                           }}
                           className="w-7 h-7 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
                           aria-label="Decrease quantity"
@@ -436,8 +467,14 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
 
                         <button
                           type="button"
-                          className="px-2 text-xs font-bold min-w-[24px] text-center cursor-default"
-                          aria-label="Current quantity"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            openPricePopup(prod.name);
+                          }}
+                          className="px-2 text-xs font-bold min-w-[24px] text-center cursor-pointer hover:underline"
+                          aria-label={`View price comparison for ${prod.name}`}
+                          title="View current vs last month price"
                         >
                           {currentQty}
                         </button>
@@ -447,7 +484,7 @@ export const BuyerStore: React.FC<BuyerStoreProps> = ({
                           onClick={(event) => {
                             event.preventDefault();
                             event.stopPropagation();
-                            onUpdateCart({ ...prod, price: prod.price }, 1);
+                            onUpdateCart(pricedProduct, 1);
                           }}
                           className="w-7 h-7 flex items-center justify-center hover:bg-black/20 rounded cursor-pointer"
                           aria-label="Increase quantity"
